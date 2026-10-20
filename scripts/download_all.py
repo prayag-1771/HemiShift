@@ -30,12 +30,61 @@ def download_moabb(name, cohort):
     return True
 
 
+def fetch_resumable(url, dest, size, md5, label, max_attempts=60):
+    """Download `url` to `dest`, resuming after stalls; verify size and MD5 at the end.
+
+    Writes to `<dest>.part` and continues from its length with an HTTP Range request, so a
+    timeout at 900 MB costs seconds, not the 900 MB. Each attempt re-requests `url`, which
+    matters for figshare: it redirects to S3 links that expire after ~10 s.
+    """
+    import hashlib
+    import time
+
+    import requests
+
+    if dest.exists() and dest.stat().st_size == size:
+        return dest
+    part = dest.with_name(dest.name + ".part")
+    for attempt in range(1, max_attempts + 1):
+        offset = part.stat().st_size if part.exists() else 0
+        if offset < size:
+            try:
+                headers = {"Range": f"bytes={offset}-"} if offset else {}
+                with requests.get(url, headers=headers, stream=True, timeout=(30, 120)) as response:
+                    response.raise_for_status()
+                    if offset and response.status_code != 206:  # server ignored Range
+                        offset = 0
+                    step = max(size // 20, 50_000_000)  # every 5 %, never for small files
+                    next_report = offset + step
+                    with open(part, "ab" if offset else "wb") as out:
+                        for chunk in response.iter_content(chunk_size=1 << 20):
+                            out.write(chunk)
+                            offset += len(chunk)
+                            if offset >= next_report:
+                                print(f"{label}: {offset / 1e6:,.0f} / {size / 1e6:,.0f} MB")
+                                next_report += step
+            except (requests.RequestException, OSError) as exc:
+                print(f"{label}: attempt {attempt} stalled at {offset / 1e6:,.0f} MB "
+                      f"({type(exc).__name__}); resuming")
+                time.sleep(min(60, 5 * attempt))
+                continue
+        digest = hashlib.md5()
+        with open(part, "rb") as handle:
+            for block in iter(lambda: handle.read(1 << 23), b""):
+                digest.update(block)
+        if part.stat().st_size == size and digest.hexdigest() == md5:
+            part.replace(dest)
+            return dest
+        print(f"{label}: checksum mismatch, starting this file again")
+        part.unlink()
+        time.sleep(5)
+    raise RuntimeError(f"{label}: gave up after {max_attempts} attempts")
+
+
 def download_figshare(name, cohort):
     import json
     import urllib.request
     import zipfile
-
-    import pooch
 
     target = RAW_DIR / name
     target.mkdir(parents=True, exist_ok=True)
@@ -49,22 +98,8 @@ def download_figshare(name, cohort):
     for file_name in cohort["files"]:
         entry = listing[file_name]
         print(f"[{name}] {file_name} ({entry['size'] / 1e9:.2f} GB)")
-        # figshare redirects to S3 links that expire after ~10 s, so a slow hand-off fails
-        # with 403; a fresh request gets a fresh link.
-        for attempt in range(1, 4):
-            try:
-                path = pooch.retrieve(
-                    url=entry["download_url"],
-                    known_hash=f"md5:{entry['computed_md5']}",  # re-downloads on mismatch
-                    fname=file_name,
-                    path=target,
-                    progressbar=True,
-                )
-                break
-            except Exception as exc:
-                if attempt == 3:
-                    raise
-                print(f"[{name}] {file_name}: attempt {attempt} failed ({exc!r:.80}), retrying")
+        path = fetch_resumable(entry["download_url"], target / file_name, entry["size"],
+                               entry["computed_md5"], label=f"[{name}] {file_name}")
         if file_name.endswith(".zip"):
             extract_dir = target / file_name.removesuffix(".zip")
             if not extract_dir.exists():
