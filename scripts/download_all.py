@@ -15,6 +15,42 @@ from hemishift.data.registry import COHORTS
 from hemishift.paths import RAW_DIR
 
 
+PHYSIONET_S3 = "https://physionet-open.s3.amazonaws.com/eegmmidb/1.0.0/"
+PHYSIONET_RUNS = (1, 2, 4, 6, 8, 10, 12, 14)  # what MOABB's PhysionetMI.data_path fetches
+
+
+def prefetch_physionet_s3(n_subjects=109, workers=8):
+    """Fetch EEGMMI from PhysioNet's AWS open-data mirror into MOABB's expected layout.
+
+    physionet.org served ~5 kB/s here and kept timing out. The S3 copies are byte-identical,
+    and each one's ETag is its MD5, so every file is verified before it is put in place.
+    That matters because MOABB later trusts any file it finds there without re-checking.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    import requests
+
+    root = RAW_DIR / "moabb" / "MNE-eegbci-data" / "files" / "eegmmidb" / "1.0.0"
+
+    def fetch(subject_run):
+        subject, run = subject_run
+        rel = f"S{subject:03d}/S{subject:03d}R{run:02d}.edf"
+        dest = root / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        head = requests.head(PHYSIONET_S3 + rel, timeout=60)
+        head.raise_for_status()
+        etag = head.headers["ETag"].strip('"')
+        md5 = None if "-" in etag else etag  # multipart ETags are not MD5s
+        fetch_resumable(PHYSIONET_S3 + rel, dest, int(head.headers["Content-Length"]), md5,
+                        label=f"[physionet] {rel}")
+
+    jobs = [(s, r) for s in range(1, n_subjects + 1) for r in PHYSIONET_RUNS]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for done, _ in enumerate(pool.map(fetch, jobs), start=1):
+            if done % 80 == 0 or done == len(jobs):
+                print(f"[physionet] S3 mirror: {done}/{len(jobs)} files verified")
+
+
 def download_moabb(name, cohort, max_attempts=30):
     import time
 
@@ -33,6 +69,8 @@ def download_moabb(name, cohort, max_attempts=30):
     # (or a network change) calling download() again picks up where it stopped.
     for attempt in range(1, max_attempts + 1):
         try:
+            if name == "physionet":
+                prefetch_physionet_s3()  # then download() finds every file already present
             dataset.download(accept=True)
             return True
         except Exception as exc:
@@ -47,6 +85,7 @@ def fetch_resumable(url, dest, size, md5, label, max_attempts=60):
     Writes to `<dest>.part` and continues from its length with an HTTP Range request, so a
     timeout at 900 MB costs seconds, not the 900 MB. Each attempt re-requests `url`, which
     matters for figshare: it redirects to S3 links that expire after ~10 s.
+    md5=None checks the size only.
     """
     import hashlib
     import time
@@ -83,7 +122,7 @@ def fetch_resumable(url, dest, size, md5, label, max_attempts=60):
         with open(part, "rb") as handle:
             for block in iter(lambda: handle.read(1 << 23), b""):
                 digest.update(block)
-        if part.stat().st_size == size and digest.hexdigest() == md5:
+        if part.stat().st_size == size and md5 in (None, digest.hexdigest()):
             part.replace(dest)
             return dest
         print(f"{label}: checksum mismatch, starting this file again")
