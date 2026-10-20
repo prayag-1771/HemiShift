@@ -15,19 +15,30 @@ from hemishift.data.registry import COHORTS
 from hemishift.paths import RAW_DIR
 
 
-def download_moabb(name, cohort):
+def download_moabb(name, cohort, max_attempts=30):
+    import time
+
     import moabb.datasets as moabb_datasets
-    from moabb.utils import set_download_dir
+
+    from hemishift.data.loaders import configure_moabb
 
     dataset_cls = getattr(moabb_datasets, cohort["source"], None)
     if dataset_cls is None:
         print(f"[{name}] skipped: installed MOABB has no {cohort['source']} loader")
         return False
-    set_download_dir(str(RAW_DIR / "moabb"))
+    configure_moabb()
     dataset = dataset_cls()
     print(f"[{name}] {cohort['source']}: {len(dataset.subject_list)} subjects, ~{cohort['size_gb']} GB")
-    dataset.download(accept=True)
-    return True
+    # Files arrive atomically and finished subjects are skipped, so after a network drop
+    # (or a network change) calling download() again picks up where it stopped.
+    for attempt in range(1, max_attempts + 1):
+        try:
+            dataset.download(accept=True)
+            return True
+        except Exception as exc:
+            print(f"[{name}] interrupted ({type(exc).__name__}); retry {attempt} shortly")
+            time.sleep(min(120, 10 * attempt))
+    return False
 
 
 def fetch_resumable(url, dest, size, md5, label, max_attempts=60):

@@ -16,8 +16,9 @@ from collections import Counter
 
 import mne
 
+from hemishift.data.loaders import configure_moabb
 from hemishift.data.registry import COHORTS
-from hemishift.paths import RAW_DIR, RESULTS_DIR
+from hemishift.paths import RESULTS_DIR
 
 
 def count_events(raw, dataset_event_id):
@@ -46,9 +47,8 @@ def describe_raw(raw, dataset_event_id):
 
 def inventory_moabb(name, cohort, n_subjects):
     import moabb.datasets as moabb_datasets
-    from moabb.utils import set_download_dir
 
-    set_download_dir(str(RAW_DIR / "moabb"))
+    configure_moabb()
     dataset = getattr(moabb_datasets, cohort["source"])()
     report = {
         "cohort": name,

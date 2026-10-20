@@ -40,6 +40,36 @@ def liu2024_affected_side():
     return {int(pid.split("-")[1]): side for pid, side in sides.items()}
 
 
+def configure_moabb():
+    """Store MOABB data under data/raw/moabb, fetched from each dataset's own host.
+
+    MOABB 1.7.2 otherwise prefers NEMAR mirrors. Their downloader writes files in place and
+    later trusts whatever exists, so an interrupted transfer can leave a truncated file in
+    use. Upstream hosts go through pooch (temp file, then rename), and they are also the
+    copies MOABB's loaders read (e.g. Liu2024's figshare zip).
+    """
+    import moabb
+    from moabb.utils import set_download_dir
+
+    set_download_dir(str(RAW_DIR / "moabb"))
+    moabb.set_download_provider("upstream")
+
+
+def moabb_cohort(name):
+    """(dataset, affected_side, group) for the MOABB cohorts whose sides are known."""
+    import moabb.datasets as moabb_datasets
+
+    from hemishift.data.registry import COHORTS
+
+    configure_moabb()
+    dataset = getattr(moabb_datasets, COHORTS[name]["source"])()
+    if name == "liu2024":
+        return dataset, liu2024_affected_side(), "stroke"
+    if COHORTS[name]["role"] == "healthy":
+        return dataset, healthy_side, "healthy"
+    raise KeyError(f"no affected-side source for {name!r} yet")
+
+
 def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand", "right_hand"),
                       subjects=None):
     """Epochs from a MOABB dataset object, harmonised patient by patient.
