@@ -51,6 +51,30 @@ def prefetch_physionet_s3(n_subjects=109, workers=8):
                 print(f"[physionet] S3 mirror: {done}/{len(jobs)} files verified")
 
 
+def prefetch_liu2024_zip():
+    """Fetch Liu2024's edffile.zip resumably into the exact spot MOABB's loader reads it from.
+
+    MOABB fetches this 463 MB zip with pooch, which cannot resume; on this link two attempts
+    died at 323 and 404 MB. MOABB's data_dl trusts a file already in place, so it is
+    MD5-checked here first. The destination uses MOABB's own path helpers (pinned 1.7.2).
+    """
+    import json
+    import urllib.request
+    from pathlib import Path
+
+    from moabb.datasets.download import _normalize_destination, _sanitize_path, get_dataset_path
+    from moabb.datasets.liu2024 import LIU2024_URL
+
+    file_id = LIU2024_URL.rsplit("/", 1)[-1]
+    with urllib.request.urlopen("https://api.figshare.com/v2/articles/21679035", timeout=60) as r:
+        entry = next(f for f in json.load(r)["files"] if str(f["id"]) == file_id)
+    root = Path(get_dataset_path("Liu2024", None)) / "MNE-liu2024-data"
+    dest = _sanitize_path(_normalize_destination(LIU2024_URL, root))
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    fetch_resumable(LIU2024_URL, dest, entry["size"], entry["computed_md5"],
+                    label=f"[liu2024] {entry['name']}")
+
+
 def download_moabb(name, cohort, max_attempts=30):
     import time
 
@@ -69,8 +93,11 @@ def download_moabb(name, cohort, max_attempts=30):
     # (or a network change) calling download() again picks up where it stopped.
     for attempt in range(1, max_attempts + 1):
         try:
+            # Prefetch big or slow files resumably; download() then finds them in place.
             if name == "physionet":
-                prefetch_physionet_s3()  # then download() finds every file already present
+                prefetch_physionet_s3()
+            elif name == "liu2024":
+                prefetch_liu2024_zip()
             dataset.download(accept=True)
             return True
         except Exception as exc:
