@@ -3,7 +3,9 @@ import pytest
 
 from hemishift.data.channels import MOTOR_TEMPLATE
 from hemishift.data.harmonise import (
+    N_TIMES,
     common_average,
+    fix_length,
     harmonise,
     normalise_lesion_side,
     select_template,
@@ -37,6 +39,13 @@ def test_select_template_reports_missing_channels():
 def test_common_average_has_zero_channel_mean():
     X = np.random.default_rng(0).normal(size=(3, 5, 10))
     np.testing.assert_allclose(common_average(X).mean(axis=1), 0.0, atol=1e-12)
+
+
+def test_fix_length_crops_448_and_449_to_the_same_length():
+    for n in (N_TIMES, N_TIMES + 1):
+        assert fix_length(np.zeros((2, 3, n))).shape == (2, 3, N_TIMES)
+    with pytest.raises(ValueError, match="need 448"):
+        fix_length(np.zeros((2, 3, N_TIMES - 1)))
 
 
 def test_left_paralysis_is_mirrored_and_hand_labels_swap():

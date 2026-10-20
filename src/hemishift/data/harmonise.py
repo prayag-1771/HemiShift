@@ -14,6 +14,9 @@ from hemishift.data.channels import MOTOR_TEMPLATE, canonical, mirror_data
 TARGET_SFREQ = 128.0  # UET175's native rate, the lowest among the cohorts
 BAND_HZ = (1.0, 40.0)  # stored band; models choose their own sub-band
 MI_WINDOW_S = (0.5, 4.0)  # seconds after MI onset
+# Fixed epoch length. Resampling from 128/160/250/256/500 Hz yields 448 or 449 samples
+# depending on the source rate, so every cohort is cut to exactly this many.
+N_TIMES = int(round((MI_WINDOW_S[1] - MI_WINDOW_S[0]) * TARGET_SFREQ))
 
 _SWAP_HANDS = {"left_hand": "right_hand", "right_hand": "left_hand"}
 # After lesion-side normalisation the affected hand is always the right hand (Task A labels).
@@ -33,6 +36,14 @@ def common_average(X):
     """Re-reference to the mean over channels (axis -2)."""
     X = np.asarray(X, dtype=float)
     return X - X.mean(axis=-2, keepdims=True)
+
+
+def fix_length(X, n_times=N_TIMES):
+    """Cut the time axis to exactly `n_times` samples; refuses epochs that are too short."""
+    X = np.asarray(X)
+    if X.shape[-1] < n_times:
+        raise ValueError(f"epochs have {X.shape[-1]} samples, need {n_times}")
+    return X[..., :n_times]
 
 
 def normalise_lesion_side(X, labels, ch_names, affected_side):

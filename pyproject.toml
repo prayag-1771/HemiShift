@@ -15,3 +15,5 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# MNE 1.13 deprecates the montage names MOABB/braindecode still use; not our code.
+filterwarnings = ["ignore:Montage name:FutureWarning"]
