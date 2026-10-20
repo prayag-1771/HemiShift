@@ -12,9 +12,11 @@ then tests them on hospitals they have never seen.
 
 ```bash
 python -m venv .venv
-# torch first, from the CUDA index; a plain `pip install torch` gives a CPU-only build
-.venv/Scripts/python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124 --retries 10 --timeout 120
+# torch and torchaudio first, from the CUDA index. A plain `pip install torch` gives a CPU-only
+# build, and braindecode would otherwise pull a PyPI torchaudio that can't load with this torch.
+.venv/Scripts/python -m pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124 --retries 10 --timeout 120
 .venv/Scripts/python -m pip install -r requirements.txt
+# exact versions of the tested environment: requirements.lock.txt
 .venv/Scripts/python -m pip install -e .
 .venv/Scripts/python -c "import torch; print(torch.cuda.is_available())"   # must print True
 ```
@@ -24,7 +26,7 @@ python -m venv .venv
 ## Data
 
 ```bash
-.venv/Scripts/python -I scripts/download_all.py              # all non-deferred cohorts (~14 GB)
+.venv/Scripts/python -I scripts/download_all.py              # all non-deferred cohorts (~22 GB)
 .venv/Scripts/python -I scripts/download_all.py liu2025      # deferred cohort, 21.8 GB
 ```
 
