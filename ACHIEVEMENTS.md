@@ -36,6 +36,39 @@ only.
 
 ## Log
 
+### 2026-10-20 · Gap diagnosis: S1 stroke (50) vs H1 healthy (109) (exploratory)
+
+`scripts/diagnose_gap.py`; results in `results/summary/gap_*.csv`.
+- **Setup:**
+  - affected-hand MI (healthy: right hand), lesion normalised to the left
+  - ERD measured 0.5–4 s vs a reference 1.5–0.5 s before MI onset
+  - Mann–Whitney tests, Holm-corrected over 11 measures
+
+| Measure | Stroke median | Healthy median | p | p (Holm) |
+|---|---|---|---|---|
+| ERD mu C3 (ipsilesional) | −19.2 % | −22.4 % | 0.19 | 1.0 |
+| ERD mu C4 (contralesional) | −18.8 % | −15.2 % | 0.79 | 1.0 |
+| Laterality mu (C3 vs C4) | −0.00 | +0.14 | 0.087 | 0.87 |
+| **Trial-to-trial variability, beta C3** | **0.517** | **0.444** | **0.002** | **0.017** |
+| Slow-rhythm asymmetry | −0.02 | +0.05 | 0.34 | 1.0 |
+
+**Findings:**
+- **The only difference that survives correction is variability.** Stroke beta modulation over
+  the lesioned side is ~16 % more variable from trial to trial. This replicates Via et al.
+  2026's "greater variability" on the same cohort.
+- **Mean ERD strength does not differ**, matching Via et al.'s null band-power result.
+- **There is a trend toward lost laterality:** 40 % of patients have LI < 0 vs 29 % of
+  healthy subjects, and the spread is wider (IQR −0.32..0.27 vs −0.08..0.39).
+- **Exploratory, uncorrected:** LI_mu rises with NIHSS (Spearman ρ = +0.39, p = 0.013). That is
+  the opposite direction to Mansour 2022; S1's NIHSS range is narrow. MBI, mRS and duration
+  show no relation. Cortical (n = 10) and subcortical (n = 40) lesions have similar LI.
+- **Confound:** device and protocol differ between S1 and H1. HEFMI-ICH (same device for
+  patients and controls) is the cleaner test.
+- **Consequence for LesionSim (PLAN §4.0 rule 1):**
+  - Lead with **trial-to-trial variability** (per-trial ERD gain, O4 timing jitter).
+  - Add a small O2 shift.
+  - Keep O1 weak, and switch O3 off for S1.
+
 ### 2026-10-20 · Gate G1, attempt 2 (authors' MATLAB pipeline, ported): FAIL
 
 Same 50 patients, preprocessed EDF via MOABB. Results in
