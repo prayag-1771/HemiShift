@@ -14,3 +14,6 @@ matplotlib
 tqdm
 
 # Added in later phases: peft, captum (phase 4-5); onnx, onnxruntime, pylsl (phase 6).
+
+# Testing
+pytest
