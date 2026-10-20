@@ -72,7 +72,7 @@ only.
 ### 2026-10-20 · Gate G1, attempt 2 (authors' MATLAB pipeline, ported): FAIL
 
 Same 50 patients, preprocessed EDF via MOABB. Results in
-`results/summary/reproduce_liu2024_paper.csv`.
+`results/summary/reproduce_liu2024_paper_edf.csv`.
 
 | Pipeline | Mean (95 % CI) | Median | Paper |
 |---|---|---|---|

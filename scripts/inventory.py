@@ -45,11 +45,12 @@ def describe_raw(raw, dataset_event_id):
     }
 
 
-def inventory_moabb(name, cohort, n_subjects):
+def inventory_moabb(name, cohort, n_subjects, ids=None):
     import moabb.datasets as moabb_datasets
 
     configure_moabb()
     dataset = getattr(moabb_datasets, cohort["source"])()
+    subjects = ids or dataset.subject_list[:n_subjects]
     report = {
         "cohort": name,
         "moabb_class": cohort["source"],
@@ -58,7 +59,7 @@ def inventory_moabb(name, cohort, n_subjects):
         "dataset_event_id": dataset.event_id,
         "subjects": {},
     }
-    for subject in dataset.subject_list[:n_subjects]:
+    for subject in subjects:
         sessions = dataset.get_data(subjects=[subject])[subject]
         report["subjects"][str(subject)] = {
             f"{session}/{run}": describe_raw(raw, dataset.event_id)
@@ -83,6 +84,7 @@ def main():
     parser = argparse.ArgumentParser(description="Inventory downloaded MOABB cohorts.")
     parser.add_argument("names", nargs="*", help="cohort keys (default: all MOABB cohorts)")
     parser.add_argument("--subjects", type=int, default=2, help="subjects to open per cohort")
+    parser.add_argument("--ids", type=int, nargs="+", help="open these subject ids instead")
     args = parser.parse_args()
 
     names = args.names or [n for n, c in COHORTS.items() if c["kind"] == "moabb"]
@@ -94,7 +96,7 @@ def main():
             print(f"[{name}] not a MOABB cohort; inspect it with the cohort-specific loader")
             continue
         try:
-            report = inventory_moabb(name, cohort, args.subjects)
+            report = inventory_moabb(name, cohort, args.subjects, args.ids)
         except Exception as exc:  # report and continue with the other cohorts
             print(f"[{name}] FAILED: {exc!r}")
             continue

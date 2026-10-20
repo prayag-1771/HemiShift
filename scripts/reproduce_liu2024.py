@@ -15,7 +15,11 @@ FBCSP_SVM.m, CSP.m, CSPFilter.m, FBCSP.m, BandpassFilter.m, NotchFilter.m) line 
   - 10 random 24/16 splits per patient, not stratified
 --mode moabb is the first attempt: MOABB filtering, MNE CSP, stratified CV.
 
-Usage: .venv/Scripts/python -I scripts/reproduce_liu2024.py [--mode paper|moabb] [--subjects N]
+--source mat (default) reads the authors' raw sourcedata .mat files, as their code does;
+--source edf reads MOABB's preprocessed EDF instead (attempt 2).
+
+Usage: .venv/Scripts/python -I scripts/reproduce_liu2024.py [--mode paper|moabb]
+                                                            [--source mat|edf] [--subjects N]
 """
 
 import argparse
@@ -39,19 +43,43 @@ FB_BANDS = [(10, 13), (13, 16), (16, 19), (19, 22), (22, 25)]
 
 # ----- the authors' pipeline, ported from their MATLAB code -----
 
-def paper_epochs(raw):
-    """(40 trials, 29 channels, 2000 samples) and labels 1/2, as CSP_LDA.m builds them."""
-    events = mne.find_events(raw, shortest_event=0, verbose=False)
-    events = events[np.isin(events[:, 2], [1, 2])]
-    data = raw.get_data(picks="eeg") * 1e6  # volts -> microvolts, like their .mat files
+def cut_and_filter(data, onsets):
+    """CSP_LDA.m's epoching: MI onset -1.6 .. +4.0 s, causal notch + 4-30 Hz, keep 0 .. +4 s."""
     b_notch, a_notch = iirnotch(50 / (FS / 2), (50 / (FS / 2)) / 6)
     b_band, a_band = butter(2, [4 / (FS / 2), 30 / (FS / 2)], btype="band")
     trials = []
-    for onset in events[:, 0]:
-        segment = data[:, onset - 800: onset + 2000]  # MI onset -1.6 .. +4.0 s
+    for onset in onsets:
+        segment = data[:, onset - 800: onset + 2000]
         segment = lfilter(b_band, a_band, lfilter(b_notch, a_notch, segment, axis=1), axis=1)
-        trials.append(segment[:, 800:])  # keep MI onset .. +4.0 s
-    return np.stack(trials), events[:, 2]
+        trials.append(segment[:, 800:])
+    return np.stack(trials)
+
+
+def paper_epochs_edf(raw):
+    """From MOABB's preprocessed EDF: (40, 29, 2000) and labels 1/2."""
+    events = mne.find_events(raw, shortest_event=0, verbose=False)
+    events = events[np.isin(events[:, 2], [1, 2])]
+    data = raw.get_data(picks="eeg") * 1e6  # volts -> microvolts, like their .mat files
+    return cut_and_filter(data, events[:, 0]), events[:, 2]
+
+
+def paper_epochs_mat(path):
+    """From the authors' raw sourcedata .mat, as PlotAccuracy.m + CSP_LDA.m read it.
+
+    rawdata is (40 trials, 33 channels, 4000 samples); the trials are stacked into one
+    continuous signal first (they were cut back to back), so windows may cross trial joins
+    exactly as in the original code. Channels [1:17 19:30] (MATLAB) are the 29 EEG
+    channels, and row 33 is the trigger (2 = MI onset).
+    """
+    from scipy.io import loadmat
+
+    eeg = loadmat(path, squeeze_me=True, struct_as_record=False)["eeg"]
+    stacked = np.concatenate(np.asarray(eeg.rawdata, dtype=float), axis=1)  # (33, 160000)
+    onsets = np.flatnonzero(stacked[32] == 2)
+    labels = np.asarray(eeg.label)
+    usable = (onsets >= 800) & (onsets + 2000 <= stacked.shape[1])  # MATLAB would error here
+    channels = np.r_[0:17, 18:30]
+    return cut_and_filter(stacked[channels], onsets[usable]), labels[usable]
 
 
 def csp_filters(X, y, pairs=2):
@@ -92,17 +120,25 @@ def paper_fbcsp_svm(X_train, y_train, X_test):
     return model.predict(np.hstack(test_features))
 
 
-def run_paper(dataset, subjects, seed=0):
+def run_paper(dataset, subjects, source, seed=0):
+    from hemishift.paths import RAW_DIR
+
     rows = []
-    splitter = ShuffleSplit(n_splits=10, train_size=24, test_size=16, random_state=seed)
+    # 60/40 = their 24/16 for 40 trials, and still valid if a window had to be skipped
+    splitter = ShuffleSplit(n_splits=10, test_size=0.4, random_state=seed)
+    mat_root = RAW_DIR / "liu2024_raw" / "sourcedata" / "sourcedata"
     for subject in subjects:
-        raw = dataset.get_data(subjects=[subject])[subject]["0"]["0"]
-        X, y = paper_epochs(raw)
+        if source == "mat":
+            X, y = paper_epochs_mat(mat_root / f"sub-{subject:02d}" /
+                                    f"sub-{subject:02d}_task-motor-imagery_eeg.mat")
+        else:
+            X, y = paper_epochs_edf(dataset.get_data(subjects=[subject])[subject]["0"]["0"])
         for name, pipeline in (("CSP+LDA", paper_csp_lda), ("FBCSP+SVM", paper_fbcsp_svm)):
             scores = [np.mean(pipeline(X[tr], y[tr], X[te]) == y[te]) for tr, te in splitter.split(X)]
-            rows.append({"mode": "paper", "pipeline": name, "protocol": "10x random 24/16",
+            rows.append({"mode": f"paper-{source}", "pipeline": name, "protocol": "10x random 24/16",
                          "subject": subject, "n_trials": len(y), "accuracy": 100 * np.mean(scores)})
-        print(f"subject {subject}: CSP+LDA {rows[-2]['accuracy']:.1f}  FBCSP+SVM {rows[-1]['accuracy']:.1f}")
+        print(f"subject {subject}: {len(y)} trials  CSP+LDA {rows[-2]['accuracy']:.1f}  "
+              f"FBCSP+SVM {rows[-1]['accuracy']:.1f}")
     return rows
 
 
@@ -144,6 +180,8 @@ def run_moabb(dataset, subjects, seed=0):
 def main():
     parser = argparse.ArgumentParser(description="Reproduce Liu2024 within-patient baselines.")
     parser.add_argument("--mode", choices=["paper", "moabb"], default="paper")
+    parser.add_argument("--source", choices=["mat", "edf"], default="mat",
+                        help="paper mode: authors' raw .mat (as their code) or MOABB's EDF")
     parser.add_argument("--subjects", type=int, default=None, help="first N subjects only")
     args = parser.parse_args()
 
@@ -152,10 +190,14 @@ def main():
 
     dataset = Liu2024()
     subjects = dataset.subject_list[: args.subjects] if args.subjects else dataset.subject_list
-    rows = (run_paper if args.mode == "paper" else run_moabb)(dataset, subjects)
+    if args.mode == "paper":
+        rows = run_paper(dataset, subjects, args.source)
+        tag = f"paper_{args.source}"
+    else:
+        rows, tag = run_moabb(dataset, subjects), "moabb"
 
     results = pd.DataFrame(rows)
-    out = RESULTS_DIR / "summary" / f"reproduce_liu2024_{args.mode}.csv"
+    out = RESULTS_DIR / "summary" / f"reproduce_liu2024_{tag}.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(out, index=False)
 
