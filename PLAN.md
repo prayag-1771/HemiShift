@@ -71,9 +71,9 @@ for leakage before celebrating (§7). The evidence on why accuracy is low is in 
 |---|---|---|---|---|---|
 | S1 | Liu 2024 (Sci Data 11:131), Beijing | 50 acute (1–30 d), mild (NIHSS ≈ 4) | ZhenTec NT1 semi-dry · 29–30 + 2 EOG · 500 | Left vs right hand | Paper inconsistent on channels and trials. Data **CC BY 4.0**, 2.3 GB |
 | S2 | UET175 (Front Neurosci 2025), Ho Chi Minh City | 30 | Emotiv Flex saline · 22 · 128 | Left/right arm and leg | **Trials pre-selected for ≥30 % ERD**, so optimistic; report separately. **Archive is password-protected**: request it from the authors |
-| S3 | Wang 2026 (Sci Data 13:1109), Tianjin | 24 chronic (3–14 mo), 3 time points | Neuracle · 64 (40 kept) · 250 | Rest / affected hand / sixth finger | Data **CC BY 4.0** (only the article is NC-ND), 8.7 GB |
+| S3 | Wang 2026 (Sci Data 13:1109), Tianjin | 24 chronic (3–14 mo), 3 time points | Neuracle · 64 (40 kept) · 250 | Rest / affected hand / sixth finger | Data **CC BY 4.0** (only the article is NC-ND), 8.7 GB (5.2 raw + 3.5 processed). No MOABB loader: MOABB's `Wang2026` is a different, healthy study |
 | S4 | Liu 2025 (Sci Data), lower limb | 27, 3 time points | to check | Lower-limb MI | Original figshare is **CC BY**. **21.8 GB, so download deferred** until a phase needs it |
-| S5? | ICH EEG-fNIRS (Adv Sci 2025) | 13 ICH + 17 controls | hybrid | MI | Public? Possibly MOABB `HefmiIch2025`. Same device for patients and controls |
+| S5 | HEFMI-ICH (Sci Data 2025), intracerebral haemorrhage | **20 ICH + 17 healthy controls**, 1–6 sessions each | g.HIamp · 32 · 256 (EEG; fNIRS skipped) | Left vs right hand grasp; 2 s cue, 10 s MI, **15 s rest** | **Same device for patients and controls**, so disease and device effects separate. CC BY 4.0. MOABB `HefmiIch2025` |
 
 ### Healthy cohorts
 
@@ -82,8 +82,12 @@ for leakage before celebrating (§7). The evidence on why accuracy is low is in 
 - **H3 — BCI IV-2a** (9). A sanity check.
 - **H4 — Cho2017** (52). Optional.
 
-All except S2 have MOABB loaders (identity of `Liu2025` / `Wang2026` / `HefmiIch2025` to
-confirm). S2 comes from GitHub.
+Loaders, confirmed 2026-10-20 against MOABB 1.7.2:
+- MOABB: S1 (`Liu2024`), S4 (`Liu2025`), S5 (`HefmiIch2025`), H1, H3.
+- Our figshare downloader: S3.
+- GitHub (password pending): S2.
+
+Even without S2, S1 + S3 + S5 give three stroke cohorts from three hospitals.
 
 ### Harmonised tasks
 

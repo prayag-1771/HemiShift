@@ -1,16 +1,46 @@
 """Every cohort HemiShift uses, in one place.
 
 Licences were checked at the original repositories on 2026-10-20 (PLAN.md §3).
-`source` is a MOABB class name when kind == "moabb", and a git URL when kind == "git".
+`kind` says how to fetch it:
+  moabb    -> `source` is a MOABB dataset class name
+  figshare -> `article` is a figshare article id; `files` lists what to download
+  git      -> `source` is a git URL, pinned to `commit`
+Order matters: download_all.py fetches cohorts in this order (week-2 fast path first).
 `deferred` cohorts are only downloaded when named explicitly (disk budget).
 """
 
 COHORTS = {
-    # Stroke cohorts
     "liu2024": dict(
         kind="moabb", source="Liu2024", role="stroke",
         site="Xuanwu Hospital, Beijing", licence="CC BY 4.0",
         doi="10.6084/m9.figshare.21679035.v5", size_gb=2.3,
+    ),
+    "physionet": dict(
+        kind="moabb", source="PhysionetMI", role="healthy",
+        site="PhysioNet EEGMMI (BCI2000)", licence="ODC-By 1.0 (confirm)", size_gb=2.0,
+    ),
+    "hefmi_ich": dict(
+        # 20 intracerebral-haemorrhage patients (subjects 18-37) + 17 healthy controls (1-17)
+        # on the same g.HIamp 32-channel system: separates disease effects from device effects.
+        kind="moabb", source="HefmiIch2025", role="stroke+healthy",
+        site="HEFMI-ICH (Shi et al., Sci Data 2025)", licence="CC BY 4.0",
+        doi="10.6084/m9.figshare.28955456.v4", size_gb=8.5,
+    ),
+    "wang2026sf": dict(
+        # Sixth-finger / affected-hand stroke dataset. Not MOABB's `Wang2026`, which is a
+        # different (healthy, Nature Communications 2026) study.
+        kind="figshare", article=30509165, role="stroke",
+        site="Tianjin Huanhu Hospital", licence="CC BY 4.0 (data; article is CC BY-NC-ND)",
+        doi="10.6084/m9.figshare.30509165.v11", size_gb=8.7,
+        files=[
+            "sourcedata.zip", "processeddata.zip", "README.md", "dataset_description.json",
+            "participants.tsv", "participants.json", "events.tsv", "events.json",
+            "electrodes.tsv", "task-MotorImagery_eeg.json",
+        ],
+    ),
+    "bnci2014_001": dict(
+        kind="moabb", source="BNCI2014_001", role="healthy",
+        site="BCI Competition IV-2a, Graz", licence="confirm", size_gb=0.5,
     ),
     "uet175": dict(
         kind="git", source="https://github.com/nmk-k66-uet/UET175",
@@ -22,23 +52,9 @@ COHORTS = {
         # Action label.txt, Event timestamp.txt, Session setup.json}, plus Info.json per patient.
         needs_password=True,
     ),
-    "wang2026": dict(
-        kind="moabb", source="Wang2026", role="stroke",
-        site="Tianjin Huanhu Hospital", licence="CC BY 4.0 (data; article is CC BY-NC-ND)",
-        doi="10.6084/m9.figshare.30509165", size_gb=8.7,
-    ),
     "liu2025": dict(
         kind="moabb", source="Liu2025", role="stroke",
-        site="Tianjin (lower limb)", licence="CC BY",
+        site="Tianjin (lower limb; gait imagery vs rest)", licence="CC BY",
         doi="10.6084/m9.figshare.27130299", size_gb=21.8, deferred=True,
-    ),
-    # Healthy cohorts
-    "physionet": dict(
-        kind="moabb", source="PhysionetMI", role="healthy",
-        site="PhysioNet EEGMMI (BCI2000)", licence="ODC-By 1.0 (confirm)", size_gb=2.0,
-    ),
-    "bnci2014_001": dict(
-        kind="moabb", source="BNCI2014_001", role="healthy",
-        site="BCI Competition IV-2a, Graz", licence="confirm", size_gb=0.5,
     ),
 }

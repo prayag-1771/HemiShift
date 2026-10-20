@@ -101,8 +101,10 @@ Verification status:
     no cross-site stroke evaluation, so **C1 stands**. Cite it as the closest harmonisation tool.
 - **MOABB** (`moabb.datasets`) has loaders for `Liu2024`, `Liu2025`, `Wang2026`,
   `HefmiIch2025`, `PhysionetMI`, `Lee2019_MI`, `BNCI2014_001`, `Cho2017` and `Stieger2021`
-  (checked against the develop-branch `__init__.py`). That `Liu2025` / `Wang2026` /
-  `HefmiIch2025` are the stroke sets below is likely but **not yet confirmed**.
+  (checked against the develop-branch `__init__.py`). Confirmed in MOABB 1.7.2 on 2026-10-20:
+  `Liu2025` and `HefmiIch2025` are the stroke sets below. **`Wang2026` is NOT the sixth-finger
+  stroke set.** It's a healthy 39-subject "sensory-guided joint-learning" study (Nature
+  Communications 2026, doi:10.1038/s41467-026-75435-5), so S3 needs its own loader.
 
 ---
 
@@ -142,11 +144,18 @@ Verification status:
   longitudinal-training of stroke patients." *Scientific Data*, 2025. doi:10.1038/s41597-025-04618-4
   - 27 patients, lower-limb MI, 3 time points.
   - **Licence conflict between mirrors (CC BY vs CC BY-NC-ND)**; check the original figshare.
-- **[P]** Hybrid EEG-fNIRS BCI for intracerebral haemorrhage. *Advanced Science*, 2025.
-  doi:10.1002/advs.202505426
-  - 13 ICH patients + 17 controls. Whether its data is public (MOABB `HefmiIch2025`?) is unconfirmed.
-  - If public, it's very valuable: **healthy and patients on the same device**, which separates
-    the disease effect from the device effect.
+- **[P] Shi J, Chen D, et al.** "HEFMI-ICH: a hybrid EEG-fNIRS motor imagery dataset for
+  brain-computer interface in intracerebral hemorrhage." *Scientific Data*, 2025.
+  doi:10.1038/s41597-025-06100-7. Full author list still to verify.
+  - 37 subjects (17 healthy, 20 ICH); g.HIamp 32-ch EEG, 256 Hz.
+  - Left/right hand grasp MI, 15 trials/class per session; 2 s cue + 10 s MI + 15 s rest;
+    1–6 sessions.
+  - Figshare doi:10.6084/m9.figshare.28955456.v4, **CC BY 4.0**, 13.2 GB total (EEG epochs
+    ≈ 8.5 GB). MOABB `HefmiIch2025`.
+  - **Healthy and patients on the same device**, which separates the disease effect from the
+    device effect.
+  - Related method paper on ICH (13 ICH + 17 controls): *Advanced Science* 2025,
+    doi:10.1002/advs.202505426.
 - Healthy (well known; numbers from memory, verify the data-paper citations before writing):
   - PhysioNet EEGMMI: 109 subjects, 64 ch, 160 Hz.
   - OpenBMI / Lee2019: 54 subjects, 62 ch, 1000 Hz, 2 sessions.

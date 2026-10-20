@@ -30,6 +30,40 @@ def download_moabb(name, cohort):
     return True
 
 
+def download_figshare(name, cohort):
+    import json
+    import urllib.request
+    import zipfile
+
+    import pooch
+
+    target = RAW_DIR / name
+    target.mkdir(parents=True, exist_ok=True)
+    api_url = f"https://api.figshare.com/v2/articles/{cohort['article']}"
+    with urllib.request.urlopen(api_url, timeout=60) as response:
+        listing = {entry["name"]: entry for entry in json.load(response)["files"]}
+    missing = [f for f in cohort["files"] if f not in listing]
+    if missing:
+        raise RuntimeError(f"not in figshare article {cohort['article']}: {missing}")
+
+    for file_name in cohort["files"]:
+        entry = listing[file_name]
+        print(f"[{name}] {file_name} ({entry['size'] / 1e9:.2f} GB)")
+        path = pooch.retrieve(
+            url=entry["download_url"],
+            known_hash=f"md5:{entry['computed_md5']}",  # pooch re-downloads on mismatch
+            fname=file_name,
+            path=target,
+            progressbar=True,
+        )
+        if file_name.endswith(".zip"):
+            extract_dir = target / file_name.removesuffix(".zip")
+            if not extract_dir.exists():
+                with zipfile.ZipFile(path) as archive:
+                    archive.extractall(extract_dir)  # zipfile drops absolute and ".." member paths
+    return True
+
+
 def download_git(name, cohort):
     target = RAW_DIR / name
     if target.exists():
@@ -52,10 +86,11 @@ def main():
     if unknown:
         sys.exit(f"unknown cohorts: {unknown}")
 
+    fetchers = {"moabb": download_moabb, "figshare": download_figshare, "git": download_git}
     failed = []
     for name in names:
         cohort = COHORTS[name]
-        fetch = download_moabb if cohort["kind"] == "moabb" else download_git
+        fetch = fetchers[cohort["kind"]]
         try:
             ok = fetch(name, cohort)
         except Exception as exc:  # keep going so one bad mirror doesn't block the rest
