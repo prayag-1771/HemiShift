@@ -36,6 +36,26 @@ only.
 
 ## Log
 
+### 2026-10-20 · Gate G1, attempt 1 (MOABB defaults): FAIL
+
+S1 Liu2024, 50 patients, within-patient. Results in
+`results/summary/reproduce_liu2024_moabb.csv`.
+
+| Pipeline | 10-fold | 10× 60/40 | Paper |
+|---|---|---|---|
+| CSP+LDA (8–30 Hz, 6 comps) | 51.05 % | 50.95 % | 55.57 % |
+| FBCSP+SVM (9 bands 4–40 Hz, k = 8) | 54.05 % | 52.08 % | 57.57 % |
+
+- We were 3.5–5.5 points short, so the gate failed (±3 allowed).
+- Only 10–11 of 50 patients beat the 65 % chance threshold for 40 trials.
+- **Cause found.** The authors' MATLAB code (figshare `code.zip`) uses different settings:
+  - causal 50 Hz notch plus causal 2nd-order 4–30 Hz Butterworth
+  - CSP with 2 pairs on trace-normalised covariances
+  - FBCSP with 5 bands from 10 to 25 Hz and all 20 features
+  - unstratified random 24/16 splits
+  - test features computed as log(1 + var) while training uses log(var)
+- The ported pipeline is `--mode paper`; attempt 2 follows.
+
 ### 2026-10-20 · Environment and cohorts
 
 **Environment:**
