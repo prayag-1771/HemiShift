@@ -1,0 +1,21 @@
+table_id,moabb_subject,sex,age,lesion_location,lesion_side,affected_side,fma_ue_as_printed,mbi,mrs
+1,18,M,68,Right basal ganglia,R,L,60/60,85,1
+2,19,M,48,Right basal ganglia,R,L,60/12,55,3
+3,20,M,35,Left frontal and basal ganglia,L,R,30/2,7,4
+4,21,M,36,Right basal ganglia,R,L,30/3,64,4
+5,22,F,51,Left basal ganglia,L,R,34/17,77,1
+6,23,M,63,Right hypothalamus,R,L,24/0,32,4
+7,24,F,49,Brainstem,midline,,34/25,95,1
+8,25,M,68,Left basal ganglia,L,R,31/56,95,1
+9,26,M,36,Right basal ganglia,R,L,28/66,97,1
+10,27,M,46,Right basal ganglia,R,L,66/48,98,1
+11,28,M,60,Left basal ganglia,L,R,56/12,43,4
+12,29,M,47,Left basal ganglia,L,R,66/12,64,3
+13,30,M,39,Left basal ganglia,L,R,66/10,81,1
+14,31,M,44,Right basal ganglia,R,L,5/66,72,3
+15,32,M,52,Right basal ganglia,R,L,3/66,57,4
+16,33,M,53,Left basal ganglia,L,R,30/66,86,1
+17,34,M,59,Right lateral ventricle,R,L,65/38,81,1
+18,35,F,60,Left basal ganglia,L,R,66/6,88,1
+19,36,M,44,Left basal ganglia,L,R,66/8,29,3
+20,37,M,58,Right basal ganglia,R,L,0/65,52,3

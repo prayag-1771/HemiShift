@@ -1,7 +1,14 @@
 import numpy as np
 import pytest
 
-from hemishift.data.channels import MOTOR_TEMPLATE, canonical, hemisphere, mirror, mirror_data
+from hemishift.data.channels import (
+    CORE_TEMPLATE,
+    EXTENDED_TEMPLATE,
+    canonical,
+    hemisphere,
+    mirror,
+    mirror_data,
+)
 
 
 @pytest.mark.parametrize(
@@ -32,10 +39,15 @@ def test_mirror(name, expected):
     assert mirror(name) == expected
 
 
-def test_mirror_is_an_involution_on_the_template():
-    for name in MOTOR_TEMPLATE:
+@pytest.mark.parametrize("template", [CORE_TEMPLATE, EXTENDED_TEMPLATE])
+def test_mirror_is_an_involution_on_the_templates(template):
+    for name in template:
         assert mirror(mirror(name)) == name
-        assert mirror(name) in MOTOR_TEMPLATE  # the template is left-right symmetric
+        assert mirror(name) in template  # each template is left-right symmetric
+
+
+def test_core_template_is_inside_the_extended_one():
+    assert set(CORE_TEMPLATE) <= set(EXTENDED_TEMPLATE)
 
 
 def test_mirror_data_swaps_hemispheres():

@@ -20,7 +20,7 @@ import pandas as pd
 from moabb.paradigms import MotorImagery
 from scipy import stats
 
-from hemishift.data.channels import MOTOR_TEMPLATE
+from hemishift.data.channels import MOTOR_TEMPLATE, hemisphere
 from hemishift.data.erd import BETA_HZ, MU_HZ, band_power, erd_percent, laterality_index
 from hemishift.data.harmonise import TARGET_SFREQ, harmonise
 from hemishift.data.loaders import moabb_cohort
@@ -51,8 +51,8 @@ def subject_measures(X, times):
         row[f"var_{name}_C3"] = float(np.std(np.log(task_power[:, c3] / ref_power[:, c3])))
     slow = band_power(X, TARGET_SFREQ, (1.0, 8.0))[..., ref].mean((0, -1))
     alpha = band_power(X, TARGET_SFREQ, MU_HZ)[..., ref].mean((0, -1))
-    left = [MOTOR_TEMPLATE.index(ch) for ch in ("F3", "FC3", "C3", "CP3", "P3")]
-    right = [MOTOR_TEMPLATE.index(ch) for ch in ("F4", "FC4", "C4", "CP4", "P4")]
+    left = [i for i, ch in enumerate(MOTOR_TEMPLATE) if hemisphere(ch) == "left"]
+    right = [i for i, ch in enumerate(MOTOR_TEMPLATE) if hemisphere(ch) == "right"]
     row["slow_asym"] = float(np.log((slow[left] / alpha[left]).mean() /
                                     (slow[right] / alpha[right]).mean()))
     return row
@@ -65,13 +65,17 @@ def diagnose(name, n_subjects):
                             tmin=TMIN, tmax=TMAX, resample=TARGET_SFREQ)
     rows = []
     for subject in subjects:  # one subject at a time keeps memory flat
+        side = affected_side(subject) if callable(affected_side) else affected_side.get(subject)
+        if side is None:
+            print(f"[{name}] subject {subject}: no defined affected side, skipped")
+            continue
         epochs, labels, _ = paradigm.get_data(dataset, subjects=[subject], return_epochs=True)
-        side = affected_side(subject) if callable(affected_side) else affected_side[subject]
         X, labels = harmonise(epochs.get_data(copy=False) * 1e6, epochs.ch_names, labels, side)
         affected = np.asarray(labels) == "right_hand"
         times = epochs.times + TMIN - epochs.times[0]
-        rows.append({"cohort": name, "group": group, "subject": subject, "affected_side": side,
-                     "n_trials": int(affected.sum()), **subject_measures(X[affected], times)})
+        rows.append({"cohort": name, "group": group(subject) if callable(group) else group,
+                     "subject": subject, "affected_side": side, "n_trials": int(affected.sum()),
+                     **subject_measures(X[affected], times)})
         print(f"[{name}] subject {subject}: {rows[-1]['n_trials']} affected-hand trials")
     table = pd.DataFrame(rows)
     out = RESULTS_DIR / "summary" / f"gap_{name}.csv"
@@ -80,7 +84,7 @@ def diagnose(name, n_subjects):
     return table
 
 
-def compare(tables):
+def compare(tables, tag):
     data = pd.concat(tables, ignore_index=True)
     measures = [c for c in data.columns if c.startswith(("erd_", "li_", "var_", "slow_"))]
     stroke, healthy = data[data["group"] == "stroke"], data[data["group"] == "healthy"]
@@ -93,7 +97,7 @@ def compare(tables):
     result = pd.DataFrame(rows)
     result["p_holm"] = holm(result["p"])
     print(result.round(3).to_string(index=False))
-    result.to_csv(RESULTS_DIR / "summary" / "gap_comparison.csv", index=False)
+    result.to_csv(RESULTS_DIR / "summary" / f"gap_comparison_{tag}.csv", index=False)
 
 
 def main():
@@ -102,8 +106,8 @@ def main():
     parser.add_argument("--subjects", type=int, default=None, help="first N subjects per cohort")
     args = parser.parse_args()
     tables = [diagnose(name, args.subjects) for name in args.names]
-    if len({t["group"].iloc[0] for t in tables}) > 1:
-        compare(tables)
+    if pd.concat(tables)["group"].nunique() > 1:  # across cohorts, or within one (HEFMI-ICH)
+        compare(tables, "_".join(args.names))
 
 
 if __name__ == "__main__":

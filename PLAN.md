@@ -104,9 +104,15 @@ Even without S2, S1 + S3 + S5 give three stroke cohorts from three hospitals.
 
 ### Harmonisation recipe (decided in week 2, after checking UET175's channel names)
 
-- **Channels:** a motor-strip template of roughly F3 Fz F4 FC3 FCz FC4 C3 Cz C4 CP3 CP4 P3 Pz P4.
-  CPz is the reference in S1 and S3, so leave it out. Re-reference to the common average of the
-  template.
+- **Channels (decided 2026-10-21):**
+  - **Core template F3 Fz F4 C3 Cz C4 P3 Pz P4** (the 10-20 motor grid). S1, S3, S5 and H1 all
+    record these natively, so no channel is interpolated. HEFMI-ICH's BioSemi-32 layout lacks
+    FC3/FCz/FC4/CP3/CP4, which ruled out the 14-channel motor strip.
+  - The **extended template** (plus FC3 FCz FC4 CP3 CP4) is kept for S1/S3/H1-only analyses.
+  - BNCI IV-2a lacks F3/F4/P3/P4, so it is not pooled without interpolation.
+  - CPz is the reference in S1 and S3, so it stays out.
+  - Re-reference to the common average of the template.
+  - S2's channel names are still unknown (password pending).
 - **Resampling and filtering:** resample to **128 Hz** (UET175's rate) and store 1–40 Hz.
   Models choose their own band.
 - **Epochs:** 0.5–4.0 s after MI onset. Rest windows are the same length.

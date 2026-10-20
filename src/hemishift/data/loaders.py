@@ -55,8 +55,27 @@ def configure_moabb():
     moabb.set_download_provider("upstream")
 
 
+def hefmi_affected_side():
+    """Paralysed side per HEFMI-ICH patient (MOABB subjects 18-37), from configs/.
+
+    Transcribed from Shi et al. 2025 (Sci Data 12:1816), Table 1, which gives lesion location
+    only. Affected side = opposite the lesion (all lesions but one are supratentorial). The
+    brainstem patient has no defined side and is left out. UNVERIFIED: that the paper's
+    patient IDs 1-20 map to MOABB subjects 18-37 in order (MOABB groups figshare files by
+    upload order).
+    """
+    from hemishift.paths import CONFIG_DIR
+
+    table = pd.read_csv(CONFIG_DIR / "hefmi_ich_patients.csv").dropna(subset=["affected_side"])
+    return dict(zip(table["moabb_subject"].astype(int), table["affected_side"]))
+
+
 def moabb_cohort(name):
-    """(dataset, affected_side, group) for the MOABB cohorts whose sides are known."""
+    """(dataset, affected_side, group) for the MOABB cohorts whose sides are known.
+
+    `affected_side` is a dict or callable subject -> 'L'/'R' (None to skip the subject);
+    `group` is a string or callable subject -> 'stroke'/'healthy'.
+    """
     import moabb.datasets as moabb_datasets
 
     from hemishift.data.registry import COHORTS
@@ -67,6 +86,11 @@ def moabb_cohort(name):
         return dataset, liu2024_affected_side(), "stroke"
     if COHORTS[name]["role"] == "healthy":
         return dataset, healthy_side, "healthy"
+    if name == "hefmi_ich":  # subjects 1-17 healthy controls, 18-37 ICH patients
+        patients = hefmi_affected_side()
+        return (dataset,
+                lambda s: healthy_side(s) if s <= 17 else patients.get(s),
+                lambda s: "healthy" if s <= 17 else "stroke")
     raise KeyError(f"no affected-side source for {name!r} yet")
 
 

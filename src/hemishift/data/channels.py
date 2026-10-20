@@ -12,10 +12,15 @@ import numpy as np
 # Old 10-20 names that the 10-10 system renamed.
 OLD_TO_NEW = {"T3": "T7", "T4": "T8", "T5": "P7", "T6": "P8"}
 
-# Motor-strip template (PLAN.md §3). CPz is left out: it is the reference in S1 and S3.
-MOTOR_TEMPLATE = (
+# Core template (PLAN.md §3): the 10-20 motor grid. Every cohort that is pooled (S1, S3, S5,
+# H1) records these natively, so no channel is interpolated. HEFMI-ICH's BioSemi-32 layout
+# lacks FC3/FCz/FC4/CP3/CP4. CPz is left out: it is the reference in S1 and S3.
+CORE_TEMPLATE = ("F3", "Fz", "F4", "C3", "Cz", "C4", "P3", "Pz", "P4")
+# Extended motor strip, for analyses limited to cohorts that have it (S1, S3, H1).
+EXTENDED_TEMPLATE = (
     "F3", "Fz", "F4", "FC3", "FCz", "FC4", "C3", "Cz", "C4", "CP3", "CP4", "P3", "Pz", "P4",
 )
+MOTOR_TEMPLATE = CORE_TEMPLATE
 
 _POSITION = re.compile(r"^([A-Z]+?)(\d+|Z)$")
 

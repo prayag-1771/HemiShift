@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from hemishift.data.channels import MOTOR_TEMPLATE
+from hemishift.data.channels import MOTOR_TEMPLATE, mirror
 from hemishift.data.harmonise import (
     N_TIMES,
     common_average,
@@ -73,8 +73,6 @@ def test_harmonise_end_to_end_left_paralysis():
     out, labels = harmonise(X, names, ["left_hand"], "L")
     template_values = np.array([values[ch] for ch in MOTOR_TEMPLATE])
     centred = template_values - template_values.mean()
-    mirrored_order = [MOTOR_TEMPLATE.index(ch) for ch in
-                      ("F4", "Fz", "F3", "FC4", "FCz", "FC3", "C4", "Cz", "C3",
-                       "CP4", "CP3", "P4", "Pz", "P3")]
+    mirrored_order = [MOTOR_TEMPLATE.index(mirror(ch)) for ch in MOTOR_TEMPLATE]
     np.testing.assert_allclose(out[0, :, 0], centred[mirrored_order])
     assert labels == ["right_hand"]
