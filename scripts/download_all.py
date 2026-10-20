@@ -49,13 +49,22 @@ def download_figshare(name, cohort):
     for file_name in cohort["files"]:
         entry = listing[file_name]
         print(f"[{name}] {file_name} ({entry['size'] / 1e9:.2f} GB)")
-        path = pooch.retrieve(
-            url=entry["download_url"],
-            known_hash=f"md5:{entry['computed_md5']}",  # pooch re-downloads on mismatch
-            fname=file_name,
-            path=target,
-            progressbar=True,
-        )
+        # figshare redirects to S3 links that expire after ~10 s, so a slow hand-off fails
+        # with 403; a fresh request gets a fresh link.
+        for attempt in range(1, 4):
+            try:
+                path = pooch.retrieve(
+                    url=entry["download_url"],
+                    known_hash=f"md5:{entry['computed_md5']}",  # re-downloads on mismatch
+                    fname=file_name,
+                    path=target,
+                    progressbar=True,
+                )
+                break
+            except Exception as exc:
+                if attempt == 3:
+                    raise
+                print(f"[{name}] {file_name}: attempt {attempt} failed ({exc!r:.80}), retrying")
         if file_name.endswith(".zip"):
             extract_dir = target / file_name.removesuffix(".zip")
             if not extract_dir.exists():

@@ -115,11 +115,18 @@ Verification status:
   *Scientific Data* 11:131, 2024. doi:10.1038/s41597-023-02787-8
   - 50 acute patients (1–30 days), Xuanwu Hospital, Beijing; 27 left / 23 right hemiplegia.
   - ZhenTec NT1 wireless semi-dry, 500 Hz, ref CPz.
-  - **Paper is inconsistent: 29 vs 30 EEG channels; 40 trials vs "20 used".** Verify on download.
+  - The paper is inconsistent (29 vs 30 channels; 40 trials vs "20 used"). **Resolved from the
+    files (2026-10-20):**
+    - 29 EEG channels + 2 EOG (HEOL, VEOR), with CPz as the reference. Old names T3–T6 are used.
+    - 40 trials per patient (20 per class, alternating). Each trial is 2 s instruction, 4 s MI,
+      2 s break.
+    - Original participants.tsv columns: Gender, Age, Duration, ParalysisSide, Handedness,
+      IsFirstTime, **StrokeLocation** (free text, e.g. "Left pons"), NIHSS, MBI, mRS.
+    - **The NEMAR mirror's participants.tsv (used by MOABB 1.7.2) is broken:** age 71 for all
+      50 patients and no clinical columns. Use the figshare original.
   - Left vs right hand MI; 8 s trials (4 s MI).
   - Metadata: age, sex, side, NIHSS, MBI, mRS, days since stroke.
-  - Data: figshare doi:10.6084/m9.figshare.21679035.v5. Dataset licence not stated in the article;
-    check figshare.
+  - Data: figshare doi:10.6084/m9.figshare.21679035.v5, **CC BY 4.0**.
   - Paper's baselines (within-patient, 60/40 split + 10-fold): CSP+LDA **55.57 %**,
     FBCSP+SVM **57.57 %**, TSLDA+DGFMDRM 61.20 %, their TWFB+DGFMDRM **72.21 %**.
 - **[V] Ma Thi C, Nguyen The H-A, Nguyen Minh K, Vu Thanh L, Nguyen Dinh H, Huynh Thi N-Y, Ha Thi T-H,

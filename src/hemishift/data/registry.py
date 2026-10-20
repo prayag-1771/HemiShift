@@ -15,6 +15,20 @@ COHORTS = {
         site="Xuanwu Hospital, Beijing", licence="CC BY 4.0",
         doi="10.6084/m9.figshare.21679035.v5", size_gb=2.3,
     ),
+    "liu2024_meta": dict(
+        # MOABB 1.7.2 loads Liu2024 EEG from the NEMAR mirror (nm000158), but NEMAR's
+        # participants.tsv is broken (age 71 for all 50, no affected side or clinical scores).
+        # Clinical metadata therefore comes from the original figshare deposit.
+        kind="figshare", article=21679035, role="metadata",
+        site="Xuanwu Hospital, Beijing", licence="CC BY 4.0",
+        doi="10.6084/m9.figshare.21679035.v5", size_gb=0.0,
+        files=[
+            "participants.tsv", "participants.json", "README.md", "dataset_description.json",
+            "task-motor-imagery_channels.tsv", "task-motor-imagery_electrodes.tsv",
+            "task-motor-imagery_events.tsv", "task-motor-imagery_events.json",
+            "task-motor-imagery_eeg.json",
+        ],
+    ),
     "physionet": dict(
         kind="moabb", source="PhysionetMI", role="healthy",
         site="PhysioNet EEGMMI (BCI2000)", licence="ODC-By 1.0 (confirm)", size_gb=2.0,

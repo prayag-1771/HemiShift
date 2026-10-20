@@ -97,8 +97,10 @@ Even without S2, S1 + S3 + S5 give three stroke cohorts from three hospitals.
 - **Task B, "is the patient trying":** affected-hand MI vs rest. This is the decision a rehab
   glove actually needs, and it's likely easier when the damaged side's signal is weak: it can use
   whichever hemisphere carries the signal, while left-vs-right needs both. Make it the primary
-  task wherever rest windows exist. Available in S3 and H1. S1, S2 and S5 have it only if rest windows of
-  the same length exist; check in week 1.
+  task wherever rest windows exist. Checked in week 1:
+  - **Available:** S3 (8 s rest per trial), S5 (15 s rest), S4 (rest events), H1 (rest events).
+  - **S1:** only 2 s breaks, so it is a Task A cohort.
+  - **S2:** pending its password.
 
 ### Harmonisation recipe (decided in week 2, after checking UET175's channel names)
 
