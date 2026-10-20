@@ -219,8 +219,10 @@ physiology), and Rung 3 (physiology-constrained translation) if Rungs 1–2 fail
 - **P1 Within-patient.** Liu 2024's protocol (60/40 + 10-fold), used **only** to compare with
   their 55.57 / 57.57 / 72.21 %. It isn't deployment-realistic, so say so.
 - **P2 Leave-patient-out** within a cohort, with zero calibration.
-- **P3 Few-shot calibration:** k ∈ {0, 2, 5, 10, 20} trials per class from the new patient,
-  5 random draws × 5 seeds.
+- **P3 Few-shot calibration:** k ∈ {0, 2, 5, 10, 20} trials per class from the new patient, 5
+  seeds. The calibration trials are the patient's **first k trials per class in recording
+  order**, as in a real session. Random draws sit next to test trials in time and flatter the
+  decoder, so they are used only as a sensitivity check (`splits.calibration_split`).
 - **P4 Leave-site-out (headline):** train on other hospitals and test on an unseen one,
   k ∈ {0, 5, 10}.
 - **Floor:** healthy-only zero-shot. Nguyen 2026 got 0.464 on UET175.

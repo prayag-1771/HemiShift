@@ -28,6 +28,10 @@ Every reported number records its config and split hash (PLAN.md §7). Newest en
 
 Anything not listed above is exploratory and will be labelled that way in the paper.
 
+**Amendment, 2026-10-20 (still before any experiment):** the k calibration trials are each
+patient's first k trials per class in recording order. Random draws are a sensitivity check
+only.
+
 ---
 
 ## Log
