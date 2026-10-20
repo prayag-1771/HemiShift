@@ -47,12 +47,29 @@ def attenuate_erd(X, sfreq, ch_names, rest_amplitude, alpha, band=MU_HZ):
     """O1, weaker ERD on the lesioned side: A' = A0 + alpha·(A − A0) on ipsilesional channels.
 
     alpha = 1 leaves the data unchanged; alpha = 0 removes the band's ERD there entirely.
+    alpha may also be one value per trial, shape (n_trials,), for X of shape
+    (n_trials, n_channels, n_times).
     """
     rows = ipsilesional(ch_names)
     component, amplitude, phase = band_split(X, sfreq, band)
     a0 = np.asarray(rest_amplitude, dtype=float)[rows, None]
-    edited = a0 + alpha * (amplitude[..., rows, :] - a0)
+    gain = np.asarray(alpha, dtype=float)
+    if gain.ndim:  # one gain per trial
+        gain = gain.reshape(gain.shape + (1, 1))
+    edited = a0 + gain * (amplitude[..., rows, :] - a0)
     return _rebuild(X, component[..., rows, :], edited, phase[..., rows, :], rows)
+
+
+def vary_erd(X, sfreq, ch_names, rest_amplitude, spread, rng, band=BETA_HZ):
+    """O4b, less consistent ERD across trials, the one stroke-vs-healthy difference that
+    survived correction in the gap diagnosis (ACHIEVEMENTS.md).
+
+    Each trial's ipsilesional ERD is scaled by its own log-normal gain (median 1, log-sd
+    `spread`), which widens the trial-to-trial spread without shifting the typical trial.
+    spread = 0 leaves the data unchanged.
+    """
+    gains = np.exp(rng.normal(0.0, spread, size=np.asarray(X).shape[0]))
+    return attenuate_erd(X, sfreq, ch_names, rest_amplitude, gains, band=band)
 
 
 def shift_to_contralesional(X, sfreq, ch_names, rest_amplitude, beta, band=MU_HZ):

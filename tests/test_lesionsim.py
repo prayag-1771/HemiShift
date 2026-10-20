@@ -8,6 +8,7 @@ from hemishift.augment.lesionsim import (
     ipsilesional,
     jitter_erd,
     shift_to_contralesional,
+    vary_erd,
 )
 
 SFREQ = 128.0
@@ -55,6 +56,30 @@ def test_attenuate_erd_moves_amplitude_toward_rest():
     assert _mu_amplitude(half, 0).mean() == pytest.approx(1.5, rel=0.03)
     assert _mu_amplitude(gone, 0).mean() == pytest.approx(2.0, rel=0.03)
     np.testing.assert_allclose(gone[0, 1:], X[0, 1:], atol=1e-10)  # Cz, C4 untouched
+
+
+def test_attenuate_erd_accepts_one_gain_per_trial():
+    X = np.concatenate([_trial(c3_amplitude=1.0)] * 2)  # two identical ERD trials
+    out = attenuate_erd(X, SFREQ, CHANNELS, REST, alpha=np.array([1.0, 0.0]))
+    np.testing.assert_allclose(out[0], X[0], atol=1e-10)  # gain 1: unchanged
+    middle = slice(int(0.75 * SFREQ), N - int(0.75 * SFREQ))
+    second = band_split(out[1:], SFREQ, MU_HZ)[1][0, 0, middle]
+    assert second.mean() == pytest.approx(2.0, rel=0.03)  # gain 0: ERD removed
+
+
+def test_vary_erd_widens_trial_to_trial_spread():
+    rng = np.random.default_rng(0)
+    X = np.concatenate([_trial(c3_amplitude=1.0)] * 40)
+    middle = slice(int(0.75 * SFREQ), N - int(0.75 * SFREQ))
+
+    def spread(data):
+        power = band_split(data, SFREQ, MU_HZ)[1][:, 0, middle].mean(axis=1) ** 2
+        return np.std(np.log(power))
+
+    varied = vary_erd(X, SFREQ, CHANNELS, REST, spread=0.5, rng=rng, band=MU_HZ)
+    assert spread(X) < 1e-6 < 0.1 < spread(varied)
+    np.testing.assert_allclose(vary_erd(X, SFREQ, CHANNELS, REST, spread=0.0, rng=rng, band=MU_HZ),
+                               X, atol=1e-10)
 
 
 def test_shift_to_contralesional_copies_relative_erd_to_the_mirror():
