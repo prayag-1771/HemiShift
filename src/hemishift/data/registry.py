@@ -32,6 +32,13 @@ COHORTS = {
             "task-motor-imagery_eeg.json",
         ],
     ),
+    "liu2024_raw": dict(
+        # The authors' raw per-patient .mat files (sourcedata/), which their published
+        # accuracy code reads. MOABB reads the preprocessed EDF instead. Needed for gate G1.
+        kind="figshare", article=21679035, role="raw",
+        site="Xuanwu Hospital, Beijing", licence="CC BY 4.0",
+        doi="10.6084/m9.figshare.21679035.v5", size_gb=1.9, files=["sourcedata.zip"],
+    ),
     "physionet": dict(
         kind="moabb", source="PhysionetMI", role="healthy",
         site="PhysioNet EEGMMI (BCI2000)", licence="ODC-By 1.0 (confirm)", size_gb=2.0,
@@ -39,7 +46,7 @@ COHORTS = {
     "hefmi_ich": dict(
         # 20 intracerebral-haemorrhage patients (subjects 18-37) + 17 healthy controls (1-17)
         # on the same g.HIamp 32-channel system: separates disease effects from device effects.
-        kind="moabb", source="HefmiIch2025", role="stroke+healthy",
+        kind="moabb", source="HefmiIch2025", role="stroke+healthy", article=28955456,
         site="HEFMI-ICH (Shi et al., Sci Data 2025)", licence="CC BY 4.0",
         doi="10.6084/m9.figshare.28955456.v4", size_gb=8.5,
     ),

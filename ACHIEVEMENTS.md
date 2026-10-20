@@ -36,6 +36,23 @@ only.
 
 ## Log
 
+### 2026-10-20 · Gate G1, attempt 2 (authors' MATLAB pipeline, ported): FAIL
+
+Same 50 patients, preprocessed EDF via MOABB. Results in
+`results/summary/reproduce_liu2024_paper.csv`.
+
+| Pipeline | Mean (95 % CI) | Median | Paper |
+|---|---|---|---|
+| CSP+LDA | 51.86 % (48.6–55.2) | 49.1 % | 55.57 % |
+| FBCSP+SVM | 49.18 % (46.6–51.7) | 47.5 % | 57.57 % |
+
+- The pipeline now matches the authors' code, so the remaining gap is the **data version**: their
+  code reads raw `sourcedata/*.mat`, while MOABB reads the preprocessed EDF ("artifacts
+  removed").
+- **Hypothesis to test:** lateralised eye or visual artifacts in the raw files, from a hand
+  video shown during MI, may inflate left-vs-right decoding.
+- **Next:** attempt 3 runs the same pipeline on the raw `.mat` files.
+
 ### 2026-10-20 · Gate G1, attempt 1 (MOABB defaults): FAIL
 
 S1 Liu2024, 50 patients, within-patient. Results in

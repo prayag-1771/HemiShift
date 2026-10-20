@@ -98,6 +98,47 @@ def prefetch_liu2024():
                         label=f"[liu2024] {entry['name']}")
 
 
+def prefetch_hefmi(workers=4):
+    """HEFMI-ICH EEG epoch files (~42 MB each) resumably into MOABB's layout, MD5-verified.
+
+    MOABB's data_path skips any file already at MNE-hefmiich2025-data/<local name> from its
+    manifest, and downloads the rest with pooch, which loses the whole file on every drop.
+    On this link that meant 7 restarts in an hour.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    import requests
+    from moabb.datasets import HefmiIch2025
+    from moabb.datasets.download import get_dataset_path
+
+    basepath = Path(get_dataset_path("HefmiIch2025", None)) / "MNE-hefmiich2025-data"
+    manifest = HefmiIch2025()._get_manifest(basepath)  # MOABB's own subject -> files map
+    listing, page = {}, 1
+    while True:
+        batch = requests.get(f"https://api.figshare.com/v2/articles/{COHORTS['hefmi_ich']['article']}/files",
+                             params={"page": page, "page_size": 100}, timeout=(30, 60)).json()
+        if not batch:
+            break
+        listing.update({entry["id"]: entry for entry in batch})
+        page += 1
+
+    jobs = [(file_id, name) for items in manifest.values() for file_id, name in items
+            if not (basepath / name).exists()]
+    print(f"[hefmi_ich] {len(jobs)} of {sum(map(len, manifest.values()))} EEG files to fetch")
+
+    def fetch(job):
+        file_id, name = job
+        entry = listing[file_id]
+        fetch_resumable(entry["download_url"], basepath / name, entry["size"],
+                        entry["computed_md5"], label=f"[hefmi_ich] {name}", max_attempts=20)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for done, _ in enumerate(pool.map(fetch, jobs), start=1):
+            if done % 10 == 0 or done == len(jobs):
+                print(f"[hefmi_ich] {done}/{len(jobs)} fetched and verified")
+
+
 def download_moabb(name, cohort, max_attempts=30):
     import time
 
@@ -121,6 +162,8 @@ def download_moabb(name, cohort, max_attempts=30):
                 prefetch_physionet_s3()
             elif name == "liu2024":
                 prefetch_liu2024()
+            elif name == "hefmi_ich":
+                prefetch_hefmi()
             dataset.download(accept=True)
             return True
         except Exception as exc:
