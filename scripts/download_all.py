@@ -26,6 +26,7 @@ def prefetch_physionet_s3(n_subjects=109, workers=8):
     and each one's ETag is its MD5, so every file is verified before it is put in place.
     That matters because MOABB later trusts any file it finds there without re-checking.
     """
+    import time
     from concurrent.futures import ThreadPoolExecutor
 
     import requests
@@ -33,22 +34,41 @@ def prefetch_physionet_s3(n_subjects=109, workers=8):
     root = RAW_DIR / "moabb" / "MNE-eegbci-data" / "files" / "eegmmidb" / "1.0.0"
 
     def fetch(subject_run):
+        """True once the file is in place. Never raises, so one file can't stop the batch."""
         subject, run = subject_run
         rel = f"S{subject:03d}/S{subject:03d}R{run:02d}.edf"
         dest = root / rel
+        if dest.exists():  # files are only renamed into place after verification
+            return True
         dest.parent.mkdir(parents=True, exist_ok=True)
-        head = requests.head(PHYSIONET_S3 + rel, timeout=60)
-        head.raise_for_status()
-        etag = head.headers["ETag"].strip('"')
-        md5 = None if "-" in etag else etag  # multipart ETags are not MD5s
-        fetch_resumable(PHYSIONET_S3 + rel, dest, int(head.headers["Content-Length"]), md5,
-                        label=f"[physionet] {rel}")
+        try:
+            for attempt in range(1, 6):
+                try:
+                    head = requests.head(PHYSIONET_S3 + rel, timeout=60)
+                    head.raise_for_status()
+                    break
+                except requests.RequestException:
+                    if attempt == 5:
+                        raise
+                    time.sleep(5 * attempt)
+            etag = head.headers["ETag"].strip('"')
+            md5 = None if "-" in etag else etag  # multipart ETags are not MD5s
+            fetch_resumable(PHYSIONET_S3 + rel, dest, int(head.headers["Content-Length"]),
+                            md5, label=f"[physionet] {rel}", max_attempts=10)
+            return True
+        except Exception as exc:
+            print(f"[physionet] {rel}: gave up for now ({type(exc).__name__})")
+            return False
 
     jobs = [(s, r) for s in range(1, n_subjects + 1) for r in PHYSIONET_RUNS]
+    missing = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for done, _ in enumerate(pool.map(fetch, jobs), start=1):
+        for done, ok in enumerate(pool.map(fetch, jobs), start=1):
+            missing += not ok
             if done % 80 == 0 or done == len(jobs):
-                print(f"[physionet] S3 mirror: {done}/{len(jobs)} files verified")
+                print(f"[physionet] S3 mirror: {done}/{len(jobs)} files checked, {missing} missing")
+    if missing:  # the caller's retry loop comes back for just these
+        raise RuntimeError(f"{missing} EEGMMI files still missing")
 
 
 def prefetch_liu2024():
