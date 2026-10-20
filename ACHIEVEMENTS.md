@@ -36,6 +36,47 @@ only.
 
 ## Log
 
+### 2026-10-21 · Gap diagnosis on the core 9-channel template, two cohorts (exploratory)
+
+Rerun with the core template (F3 Fz F4 C3 Cz C4 P3 Pz P4). Results in
+`results/summary/gap_comparison_*.csv`.
+
+| Measure | S1 vs H1: stroke / healthy | p (Holm) | HEFMI-ICH (same device): ICH / healthy | p (Holm) |
+|---|---|---|---|---|
+| Trial-to-trial variability, beta C3 | **0.526 / 0.436** | **0.005** | 0.567 / 0.485 | 1.0 (raw p 0.15) |
+| Laterality mu | 0.02 / 0.14 | 1.0 (raw p 0.10) | **−0.13 / +0.32** | 0.28 (raw p 0.025) |
+| ERD mu C3 | −19.5 / −21.8 % | 1.0 | +11.1 / −3.3 % | 1.0 |
+
+- **The two cohorts agree in direction:** more variable modulation, and laterality shifted
+  toward the contralesional side. They differ in hospital, device and stroke type (acute
+  mostly ischaemic vs ICH). Only the S1 variability result survives correction; HEFMI-ICH is
+  small (19 vs 17).
+- **Caveat 1 (HEFMI patient mapping):** it is unverified (configs/hefmi_ich_patients.csv). That
+  the expected laterality direction shows up weakly suggests the mapping is right.
+- **Caveat 2 (reference window):** in S1 and HEFMI-ICH the −1.5..−0.5 s reference falls during
+  the on-screen cue, which biases ERD toward 0 (HEFMI-ICH healthy ERD only −3 %). The bias is
+  shared by both groups within HEFMI-ICH. To do: cohort-specific rest references (HEFMI-ICH
+  −8..−3 s; S1 the 2 s break).
+- **LesionSim priorities are confirmed:**
+  - O4b (per-trial variability)
+  - O2 (contralesional shift)
+
+### 2026-10-21 · Premise check: does pooling other patients help? S1, k = 10 per class
+
+`scripts/premise_check.py`: Riemannian tangent space + LR, 8–30 Hz, re-centred; tested on each
+patient's last 20 trials.
+
+| Model | Mean | Patients ≥ 75 % (chance threshold, 20 trials) |
+|---|---|---|
+| Own first 10 + 10 trials (R0) | **55.8 %** | 6 / 50 |
+| Pooled: other 49 patients + own (R1 naive) | **55.2 %** | 4 / 50 |
+
+- **Naive pooling gives no gain** (median 0.0, p = 0.81). Over two thousand trials from
+  others swamp a patient's 20. This is the transfer problem from the literature, reproduced.
+- **A side result:** a Riemannian per-patient model reaches 55.8 %, matching the paper's
+  CSP+LDA 55.57 %.
+- **Next:** smarter transfer (balanced weights, Riemannian rotation, MDWM) is running.
+
 ### 2026-10-21 · Gate G1, attempt 3 (authors' code + authors' raw data): resolved, not reproducible
 
 The authors' MATLAB pipeline (ported) on their raw `sourcedata/*.mat` (all 40 trials usable
