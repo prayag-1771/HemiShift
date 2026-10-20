@@ -1,0 +1,112 @@
+{
+  "cohort": "liu2024",
+  "moabb_class": "Liu2024",
+  "moabb_doc": "Dataset [1]_ from the study on motor imagery [2]_.",
+  "n_subjects": 50,
+  "dataset_event_id": {
+    "left_hand": 1,
+    "right_hand": 2
+  },
+  "subjects": {
+    "1": {
+      "0/0": {
+        "n_channels": 32,
+        "channels": [
+          "FP1",
+          "FP2",
+          "Fz",
+          "F3",
+          "F4",
+          "F7",
+          "F8",
+          "FCz",
+          "FC3",
+          "FC4",
+          "FT7",
+          "FT8",
+          "Cz",
+          "C3",
+          "C4",
+          "T3",
+          "T4",
+          "CP3",
+          "CP4",
+          "TP7",
+          "TP8",
+          "Pz",
+          "P3",
+          "P4",
+          "T5",
+          "T6",
+          "Oz",
+          "O1",
+          "O2",
+          "HEOL",
+          "VEOR",
+          "STIM"
+        ],
+        "channel_types": {
+          "eeg": 29,
+          "eog": 2,
+          "stim": 1
+        },
+        "sfreq": 500.0,
+        "duration_s": 320.0,
+        "events": {
+          "left_hand": 20,
+          "right_hand": 20
+        }
+      }
+    },
+    "2": {
+      "0/0": {
+        "n_channels": 32,
+        "channels": [
+          "FP1",
+          "FP2",
+          "Fz",
+          "F3",
+          "F4",
+          "F7",
+          "F8",
+          "FCz",
+          "FC3",
+          "FC4",
+          "FT7",
+          "FT8",
+          "Cz",
+          "C3",
+          "C4",
+          "T3",
+          "T4",
+          "CP3",
+          "CP4",
+          "TP7",
+          "TP8",
+          "Pz",
+          "P3",
+          "P4",
+          "T5",
+          "T6",
+          "Oz",
+          "O1",
+          "O2",
+          "HEOL",
+          "VEOR",
+          "STIM"
+        ],
+        "channel_types": {
+          "eeg": 29,
+          "eog": 2,
+          "stim": 1
+        },
+        "sfreq": 500.0,
+        "duration_s": 320.0,
+        "events": {
+          "left_hand": 20,
+          "right_hand": 20
+        }
+      }
+    }
+  }
+}
