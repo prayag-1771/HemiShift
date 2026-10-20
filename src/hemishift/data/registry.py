@@ -11,6 +11,9 @@ Order matters: download_all.py fetches cohorts in this order (week-2 fast path f
 
 COHORTS = {
     "liu2024": dict(
+        # MOABB 1.7.2 quirk: download() fetches the NEMAR mirror (nm000158, ~0.5 GB of EDF),
+        # but get_data() loads figshare's edffile.zip (0.46 GB) and fetches it on first use.
+        # Both copies end up under data/raw/moabb; only the figshare one is read.
         kind="moabb", source="Liu2024", role="stroke",
         site="Xuanwu Hospital, Beijing", licence="CC BY 4.0",
         doi="10.6084/m9.figshare.21679035.v5", size_gb=2.3,
