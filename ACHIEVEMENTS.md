@@ -36,6 +36,29 @@ only.
 
 ## Log
 
+### 2026-10-21 · S1 deep-dive step 1: data audit (34 dev patients, label-free checks)
+
+`scripts/audit_liu2024.py` and `hemishift.preprocess.quality`; results in
+`results/summary/audit_liu2024_dev.csv`.
+- **Corrupted recordings.** In the raw `.mat` files of patients **5, 13, 15 and 49**,
+  neighbouring channels are uncorrelated (median r ≤ 0.08), which real EEG never shows.
+  - The EDF versions are intact (r 0.66–0.89), except **patient 13, corrupted in both**.
+  - Decisions: the S1 deep-dive reads the EDF. **Patient 13 is excluded** by a label-free rule
+    applied to all 50 patients (median adjacent-channel r < 0.3); only 13 fails it.
+  - G1 attempt 3 included the four corrupted `.mat` patients. That cannot explain the gap
+    (EDF and `.mat` agree on average), but it is noted.
+- **Channel faults:** every dev patient has 1–9 technically faulty channels (flat,
+  broadband-noisy, or neighbour r < 0.4). 27 of 34 have a faulty *motor* channel. Possible
+  pathological slowing appears in 4 patients, and only 4 of 11 slow channels are on the lesion
+  side, so most are artifacts rather than lesion slowing.
+- **The classic lateralised signal (C3−C4 power by class) is nearly absent:** p < 0.05 in 2 (mu)
+  and 4 (beta) of 34, where chance alone gives 1.7; median |d| ≈ 0.2.
+- **Rhythm peak above 1/f:** present in only **20 of 34** patients (median 9.6 Hz, range 7.25–12).
+  The first estimate's "7 Hz" was a search-edge artifact. 14 patients have no clear mu/alpha
+  rhythm at all.
+- **EOG power differs by class (|d| > 0.5) in 8 patients**, a possible confound to keep out.
+- **The EDF is already notch-filtered** (50 Hz ratio 1.0, vs 7.4 in the raw `.mat`).
+
 ### 2026-10-21 · Decodability per cohort and the S1 deep-dive decision
 
 **Within-patient R0** (TS + LR, first 10 + 10 trials, chronological test):
