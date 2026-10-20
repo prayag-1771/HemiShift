@@ -29,6 +29,12 @@ COHORTS = {
     "wang2026sf": dict(
         # Sixth-finger / affected-hand stroke dataset. Not MOABB's `Wang2026`, which is a
         # different (healthy, Nature Communications 2026) study.
+        # From its BIDS metadata (checked 2026-10-20): Neuracle NeuSen W, 250 Hz, 40 electrodes
+        # listed (task json says 60), ground AFz. Events (ms): 1 = rest starts (8 s),
+        # 2 = affected-hand MI starts (6 s), 3 = sixth-finger MI starts (6 s), so each 14 s trial
+        # is rest then MI. participants.tsv: age, sex, Hemiplegia_side (L/R), duration (months),
+        # Collection_phase (pre/post/follow-up). The json also documents a `diagnosis` column
+        # that the tsv lacks.
         kind="figshare", article=30509165, role="stroke",
         site="Tianjin Huanhu Hospital", licence="CC BY 4.0 (data; article is CC BY-NC-ND)",
         doi="10.6084/m9.figshare.30509165.v11", size_gb=8.7,
