@@ -70,7 +70,7 @@ for leakage before celebrating (§7). The evidence on why accuracy is low is in 
 | ID | Dataset | Patients | Device · channels · Hz | Task | Watch out for |
 |---|---|---|---|---|---|
 | S1 | Liu 2024 (Sci Data 11:131), Beijing | 50 acute (1–30 d), mild (NIHSS ≈ 4) | ZhenTec NT1 semi-dry · 29–30 + 2 EOG · 500 | Left vs right hand | Paper inconsistent on channels and trials. Data **CC BY 4.0**, 2.3 GB |
-| S2 | UET175 (Front Neurosci 2025), Ho Chi Minh City | 30 | Emotiv Flex saline · 22 · 128 | Left/right arm and leg | **Trials pre-selected for ≥30 % ERD**, so optimistic; report separately |
+| S2 | UET175 (Front Neurosci 2025), Ho Chi Minh City | 30 | Emotiv Flex saline · 22 · 128 | Left/right arm and leg | **Trials pre-selected for ≥30 % ERD**, so optimistic; report separately. **Archive is password-protected**: request it from the authors |
 | S3 | Wang 2026 (Sci Data 13:1109), Tianjin | 24 chronic (3–14 mo), 3 time points | Neuracle · 64 (40 kept) · 250 | Rest / affected hand / sixth finger | Data **CC BY 4.0** (only the article is NC-ND), 8.7 GB |
 | S4 | Liu 2025 (Sci Data), lower limb | 27, 3 time points | to check | Lower-limb MI | Original figshare is **CC BY**. **21.8 GB, so download deferred** until a phase needs it |
 | S5? | ICH EEG-fNIRS (Adv Sci 2025) | 13 ICH + 17 controls | hybrid | MI | Public? Possibly MOABB `HefmiIch2025`. Same device for patients and controls |
@@ -301,7 +301,7 @@ with it.
 
 | Week | Phase | Deliverable | Gate |
 |---|---|---|---|
-| 1 | **0 · Setup + data access** | Env with CUDA torch; all cohorts downloaded; inventory (subjects, channels, Hz, trials/class, rest windows, **licence from the original repo**); S1 inconsistencies resolved; 6 must-read papers read; [P] authors filled in LITERATURE.md | **G0:** ≥ 3 stroke cohorts usable. Otherwise scope to S1+S3 with a 2-site P4 |
+| 1 | **0 · Setup + data access** | Env with CUDA torch; all cohorts downloaded; inventory (subjects, channels, Hz, trials/class, rest windows, **licence from the original repo**); S1 inconsistencies resolved; 6 must-read papers read; [P] authors filled in LITERATURE.md | **G0:** ≥ 3 stroke cohorts usable. UET175's archive needs a password from its authors; if it hasn't arrived, download Liu 2025 (21.8 GB) as the third cohort. Otherwise scope to S1+S3 with a 2-site P4 |
 | 2 | **1a · Fast path: S1 + H1 + gap diagnosis** | S1 and EEGMMI harmonised first; stroke-vs-healthy gap measured (§4.0 rule 1); FBCSP/EEGNet leave-patient-out baselines on S1; ACHIEVEMENTS.md started with H1/H2 written *before* any run | **G1:** reproduce S1's CSP+LDA / FBCSP+SVM within ±3 points |
 | 3 | **Pilot (fail fast)** | R2 vs R2 + minimal LesionSim (the operators the diagnosis ranks highest, in population and patient-matched modes) on S1, k = 10, 5 seeds | **GP:** more patients helped than harmed and a mean gain of ≥ 1–2 points → full speed. Nothing → Phase 3 starts at Rung 2/3 |
 | 4–5 | **1b · StrokeMI-Bench (C1)** | Add S2–S5; `build_benchmark.py` goes raw → harmonised arrays + metadata; fixed split files; data card with QC plots per cohort | Rebuilds bit-identical from scratch |

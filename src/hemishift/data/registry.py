@@ -15,8 +15,12 @@ COHORTS = {
     "uet175": dict(
         kind="git", source="https://github.com/nmk-k66-uet/UET175",
         commit="e05a1ae12421514d2392db169f20437b1c60673d", role="stroke",
-        site="Hospital 175, Ho Chi Minh City", licence="check LICENSE in repo",
-        doi="10.3389/fnins.2025.1580931", size_gb=0.4,
+        site="Hospital 175, Ho Chi Minh City", licence="CC BY (README; no LICENSE file)",
+        doi="10.3389/fnins.2025.1580931", size_gb=0.5,
+        # Data_UET175.rar is encrypted. The password comes from the authors on request
+        # (chaumt@vnu.edu.vn, kienprb@gmail.com). Layout: ID01-ID30/<session>/RunN_{Raw Signals.csv,
+        # Action label.txt, Event timestamp.txt, Session setup.json}, plus Info.json per patient.
+        needs_password=True,
     ),
     "wang2026": dict(
         kind="moabb", source="Wang2026", role="stroke",
