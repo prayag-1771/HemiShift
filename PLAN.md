@@ -309,8 +309,8 @@ with it.
 | 6–9 | **3 · LesionSim ladder (C2)** | Rungs 1→3 as needed; unit tests (identity at α=1, β=0, γ=1); calibration; realism + utility; ablations | **G2:** H1 holds on P2 or P4 in ≥ 2 cohorts. Otherwise use the fallback (§12) |
 | 9–11 | **4 · Foundation models (C4)** | LaBraM/CBraMod (± REVE) × head/LoRA/full × ± LesionSim; one config reproduces Nguyen 2026's UET175 setup | — |
 | 11–12 | **5 · Gate + analysis (C3)** | SafeTransfer results; attribution maps; clinical correlations | — |
-| 12–14 | **6 · Demo** | ONNX + LSL replay + UI + latency numbers + 2-minute video. **Repo stays private** | Demo runs end to end |
-| 14 | **Patent** | Invention disclosure to the VIT IPR cell → **provisional filing BEFORE arXiv, public GitHub or any hackathon** | Filed |
+| 12–14 | **6 · Demo** | ONNX + LSL replay + UI + latency numbers + 2-minute video | Demo runs end to end |
+| 14 | **Patent (optional)** | The repo went public on 2026-10-20, which counts as public disclosure. Indian and European novelty is likely lost. The US allows 1 year after an inventor's own disclosure, so a US provisional, if wanted, must be filed well before **2027-10-20**. Confirm with the VIT IPR cell (not legal advice) | Decided |
 | 14–18 | **7 · Paper** | Draft → supervisor review → re-run LITERATURE §4 searches → submit | Submitted |
 
 ## 12. Risks and fallbacks
@@ -382,8 +382,10 @@ B_i_g/
 - **Download location:** point MOABB downloads at `data/raw` with `moabb.utils.set_download_dir`
   so C: doesn't fill up.
 - **Device switch:** `HEMISHIFT_DEVICE=cpu|cuda`. scikit-learn and pyriemann run on CPU only.
-- **Git:** B_i_g currently sits inside the `G:\VSC_NEW` repo. Give it its own **private** repo
-  (commits by you only) and keep it private until the provisional patent is filed.
+- **Git:** own repo at https://github.com/prayag-1771/HemiShift, nested inside `G:\VSC_NEW`,
+  branch `main`. It's public by the owner's choice from 2026-10-20 and will be made private
+  later; that won't undo the disclosure. Commit after every meaningful change, with the owner as
+  sole author and no co-author trailers.
 
 ## 15. What this shows on a resume
 
@@ -399,7 +401,7 @@ B_i_g/
 
 ## 16. This week
 
-1. Create the private repo for B_i_g.
+1. Done: repo created at github.com/prayag-1771/HemiShift.
 2. Set up the environment and confirm `torch.cuda.is_available()` is True.
 3. Write and run `scripts/download_all.py`, then fill in the inventory table and licences.
 4. Read Nagarajan 2024, Via 2026, Nguyen 2026, Mutual Generation (JBHI 2025), WalkBCI 2026 and
