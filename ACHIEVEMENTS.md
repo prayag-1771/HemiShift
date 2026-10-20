@@ -36,6 +36,36 @@ only.
 
 ## Log
 
+### 2026-10-21 · Decodability per cohort and the S1 deep-dive decision
+
+**Within-patient R0** (TS + LR, first 10 + 10 trials, chronological test):
+
+| Cohort | Task | Mean | Above chance |
+|---|---|---|---|
+| S3 Tianjin (24 chronic) | **B: affected MI vs rest** | **82.9 %** (median 84.7) | **23 / 24** |
+| S3 Tianjin | sixth-finger vs affected MI (the paper's task) | 54.2 % | 3 / 24 |
+| S5 HEFMI-ICH, 17 healthy | A / B | 52.0 / 51.3 % | 0 / 0 of 17 |
+| S5 HEFMI-ICH, 19 ICH | A / B | 54.2 / 55.3 % | 5 / 3 of 19 |
+| S1 Beijing (50) | A: left vs right | 55.8 % | 6 / 50 |
+
+- **S3 Task B is strongly decodable.**
+- **S3's sixth-finger task:** the paper reports ~85 % with random 10-fold CV, but it falls to
+  chance with chronological calibration. Random-vs-chronological is still to be tested on
+  identical features.
+- **HEFMI-ICH:** even healthy controls are at chance, all 32 channels included. The ERD there is
+  slow and weak (healthy 1: −10 to −17 % only at 4–9 s), and a later 4.0–7.5 s MI window gives
+  only 52.7 % vs 50.9 %. Its EEG looks weak; it stays a diagnosis cohort for now.
+- **Decision (with the user):** a systematic S1 Task A deep-dive, building from the basics.
+  1. data audit
+  2. preprocessing
+  3. strong standard models
+  4. our own methods: LesionSim, variability-aware and laterality-aware approaches
+- **Guard against overfitting S1:** a **locked test set** of 15 of 50 patients
+  (`configs/splits/liu2024_locked_test.json`, hash 4999799d11, stratified by paralysed side ×
+  NIHSS > median, seed 20261021). All development uses the 35 dev patients with nested
+  validation. The test patients are scored once, at the end. Earlier exploratory runs used all
+  50, but no method was tuned on them.
+
 ### 2026-10-21 · Gap diagnosis on the core 9-channel template, two cohorts (exploratory)
 
 Rerun with the core template (F3 Fz F4 C3 Cz C4 P3 Pz P4). Results in

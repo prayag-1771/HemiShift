@@ -46,6 +46,24 @@ def calibration_split(labels, k_per_class, mode="first", seed=0):
     return calibration, np.setdiff1d(np.arange(labels.size), calibration)
 
 
+def locked_test_split(table, id_col, strata_cols, n_test, seed=0):
+    """Hold out `n_test` subjects for a final test that is never used during development.
+
+    Strata are filled proportionally (largest remainder), so each held-out patient is drawn
+    from a stratum (e.g. paralysed side x severity band) at its share of the cohort. Returns
+    (dev_ids, test_ids), both sorted.
+    """
+    rng = np.random.default_rng(seed)
+    strata = table.groupby(list(strata_cols))[id_col].apply(list)
+    quota = strata.map(len) / len(table) * n_test
+    take = np.floor(quota).astype(int)
+    for key in (quota - take).sort_values(ascending=False).index[: n_test - take.sum()]:
+        take[key] += 1
+    test = [pid for key, ids in strata.items() for pid in rng.choice(ids, size=take[key], replace=False)]
+    dev = sorted(set(table[id_col]) - set(test))
+    return dev, sorted(test)
+
+
 def split_hash(split):
     """Short, stable fingerprint of a split; recorded next to every reported number."""
     payload = json.dumps(split, sort_keys=True, default=str).encode()

@@ -1,7 +1,15 @@
 import numpy as np
 import pytest
 
-from hemishift.data.splits import calibration_split, leave_site_out, patient_folds, split_hash
+import pandas as pd
+
+from hemishift.data.splits import (
+    calibration_split,
+    leave_site_out,
+    locked_test_split,
+    patient_folds,
+    split_hash,
+)
 
 
 def test_patient_folds_are_balanced_and_reproducible():
@@ -38,6 +46,16 @@ def test_calibration_random_mode_is_reproducible_and_disjoint():
 def test_calibration_needs_trials_left_for_testing():
     with pytest.raises(ValueError, match="need more than"):
         calibration_split(["L", "L", "R", "R"], k_per_class=2)
+
+
+def test_locked_test_split_is_stratified_disjoint_and_reproducible():
+    table = pd.DataFrame({"id": range(50), "side": ["L"] * 27 + ["R"] * 23,
+                          "severe": ([True] * 9 + [False] * 18) + ([True] * 8 + [False] * 15)})
+    dev, test = locked_test_split(table, "id", ["side", "severe"], n_test=15, seed=1)
+    assert len(test) == 15 and len(dev) == 35 and not set(dev) & set(test)
+    held = table.set_index("id").loc[test]
+    assert abs((held["side"] == "L").sum() - 15 * 27 / 50) <= 1  # proportional to the cohort
+    assert locked_test_split(table, "id", ["side", "severe"], n_test=15, seed=1)[1] == test
 
 
 def test_split_hash_is_stable_and_key_order_independent():
