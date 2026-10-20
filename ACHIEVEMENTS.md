@@ -36,6 +36,27 @@ only.
 
 ## Log
 
+### 2026-10-21 · Gate G1, attempt 3 (authors' code + authors' raw data): resolved, not reproducible
+
+The authors' MATLAB pipeline (ported) on their raw `sourcedata/*.mat` (all 40 trials usable
+for all 50 patients). Results in `results/summary/reproduce_liu2024_paper_mat.csv`.
+
+| Pipeline | Raw .mat, mean (95 % CI) | Cleaned EDF | Paper |
+|---|---|---|---|
+| CSP+LDA | 50.56 % (47.8–53.4) | 51.86 % | 55.57 % |
+| FBCSP+SVM | 49.29 % (46.9–51.7) | 49.17 % | 57.57 % |
+
+- **Raw vs cleaned shows no difference** (paired Wilcoxon p = 0.11 and 0.47). The
+  eye-artifact hypothesis from attempt 2 is **rejected**.
+- **Conclusion:** the published baselines cannot be reproduced from the authors' released
+  code and data. We get chance-level decoding, about 50 %.
+  - This is consistent with Via et al. 2026: about 49.5–51.8 % on this cohort.
+  - Our data handling is verified: structure and counts match, two independent data
+    versions agree, and the best patients reach 87.5 %.
+- **Decision:** G1 counts as **resolved**. The pipeline is verified, and the
+  non-reproducibility is a documented finding for C1 (benchmark section), not a blocker.
+  S1 is a genuinely hard, near-chance cohort for standard decoders.
+
 ### 2026-10-20 · Gap diagnosis: S1 stroke (50) vs H1 healthy (109) (exploratory)
 
 `scripts/diagnose_gap.py`; results in `results/summary/gap_*.csv`.
