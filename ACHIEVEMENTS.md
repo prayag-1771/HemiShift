@@ -47,5 +47,5 @@ Anything not listed above is exploratory and will be labelled that way in the pa
 - Healthy: H1 `PhysionetMI` (109), H3 `BNCI2014_001` (9).
 - MOABB's `Wang2026` is a different, healthy study. S3 (sixth-finger stroke set) gets its own
   figshare download.
-- S2 UET175 is cloned at e05a1ae, but the archive is password-protected; the password has been
-  requested from the authors.
+- S2 UET175 is cloned at e05a1ae, but the archive is password-protected. A request to the
+  authors is drafted, not yet sent.
