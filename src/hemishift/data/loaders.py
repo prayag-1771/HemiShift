@@ -70,6 +70,63 @@ def hefmi_affected_side():
     return dict(zip(table["moabb_subject"].astype(int), table["affected_side"]))
 
 
+WANG2026SF_EVENTS = {"1": "rest", "2": "affected_mi", "3": "sixth_finger_mi"}
+
+
+def wang2026sf_affected_side():
+    """Paralysed side per Tianjin patient, from the dataset's participants.tsv."""
+    table = pd.read_csv(RAW_DIR / "wang2026sf" / "participants.tsv", sep="\t")
+    return {int(pid.split("-")[1]): side
+            for pid, side in zip(table["subject_id"], table["Hemiplegia_side"])}
+
+
+def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S):
+    """S3 epochs (rest / affected-hand MI / sixth-finger MI) from the raw EEGLAB runs.
+
+    Each 14 s trial is an 8 s rest then a 6 s MI, so `window` (seconds from each event
+    onset) cuts rest and MI epochs alike. The .set files hold non-ASCII text, so they need
+    uint16_codec='latin1'. Runs are read in file order (01-04 per phase), which is recording
+    order.
+    """
+    import mne
+
+    sides = wang2026sf_affected_side()
+    parts, labels, metas = [], [], []
+    for subject in subjects:
+        X_subject, y_subject, meta_subject = [], [], []
+        for phase in phases:
+            runs = sorted((RAW_DIR / "wang2026sf" / "sourcedata" / f"sub-{subject:02d}" / phase)
+                          .glob("*_original.set"))
+            for run_index, path in enumerate(runs):
+                raw = mne.io.read_raw_eeglab(path, preload=True, uint16_codec="latin1",
+                                             verbose="error")
+                raw.set_channel_types({ch: ("ecg" if ch == "ECG" else "eog")
+                                       for ch in ("ECG", "HEOR", "HEOL", "VEOU", "VEOL")
+                                       if ch in raw.ch_names}, verbose="error")
+                raw.filter(*BAND_HZ, picks="eeg", verbose="error")
+                events, event_id = mne.events_from_annotations(raw, verbose="error")
+                wanted = {name: event_id[code] for code, name in WANG2026SF_EVENTS.items()
+                          if code in event_id}
+                epochs = mne.Epochs(raw, events, event_id=wanted, tmin=window[0], tmax=window[1],
+                                    baseline=None, picks="eeg", preload=True, verbose="error")
+                epochs = epochs.resample(TARGET_SFREQ, verbose="error")
+                names = {code: name for name, code in wanted.items()}
+                X_subject.append(fix_length(epochs.get_data(copy=False)) * 1e6)
+                y_subject.extend(names[code] for code in epochs.events[:, 2])
+                meta_subject.extend([(phase, run_index)] * len(epochs))
+        X, y = harmonise(np.concatenate(X_subject), epochs.ch_names, y_subject, sides[subject])
+        parts.append(X)
+        labels.extend(y)
+        metas.append(pd.DataFrame({
+            "cohort": "wang2026sf", "patient": f"wang2026sf:{subject}",
+            "session": [m[0] for m in meta_subject], "run": [m[1] for m in meta_subject],
+            "trial": np.arange(len(meta_subject)), "affected_side": sides[subject],
+            "group": "stroke",
+        }))
+    return EpochSet(X=np.concatenate(parts).astype(np.float32), labels=np.asarray(labels),
+                    meta=pd.concat(metas, ignore_index=True))
+
+
 def moabb_cohort(name):
     """(dataset, affected_side, group) for the MOABB cohorts whose sides are known.
 
@@ -95,17 +152,18 @@ def moabb_cohort(name):
 
 
 def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand", "right_hand"),
-                      subjects=None):
+                      subjects=None, window=MI_WINDOW_S):
     """Epochs from a MOABB dataset object, harmonised patient by patient.
 
     `affected_side` maps a MOABB subject number to 'L' or 'R'. Stroke cohorts pass their
-    clinical table; healthy cohorts pass `healthy_side`.
+    clinical table; healthy cohorts pass `healthy_side`. `window` (seconds from MI onset) must
+    span 3.5 s; a negative window cuts matched rest epochs from before each trial's cue.
     """
     from moabb.paradigms import MotorImagery
 
     paradigm = MotorImagery(
         n_classes=len(events), events=list(events), fmin=BAND_HZ[0], fmax=BAND_HZ[1],
-        tmin=MI_WINDOW_S[0], tmax=MI_WINDOW_S[1], resample=TARGET_SFREQ,
+        tmin=window[0], tmax=window[1], resample=TARGET_SFREQ,
     )
     epochs, labels, meta = paradigm.get_data(dataset, subjects=subjects, return_epochs=True)
     data = fix_length(epochs.get_data(copy=False)) * 1e6  # volts -> microvolts

@@ -75,7 +75,18 @@ patient's last 20 trials.
   others swamp a patient's 20. This is the transfer problem from the literature, reproduced.
 - **A side result:** a Riemannian per-patient model reaches 55.8 %, matching the paper's
   CSP+LDA 55.57 %.
-- **Next:** smarter transfer (balanced weights, Riemannian rotation, MDWM) is running.
+- **Smarter transfer, same 50 patients:**
+
+  | Model | Mean | p vs own | Patients ≥ 75 % |
+  |---|---|---|---|
+  | Balanced pooling (own trials weigh as much as all others) | 56.1 % | 0.80 | 4 |
+  | MDWM (weighted source/target means, λ = 0.5) | 54.6 % | 0.26 | 3 |
+
+  TLRotate was too slow to run: about 13 s per source patient per target, so hours.
+- **Conclusion:** on S1 Task A **no transfer variant beats the patient's own 20 trials**. The
+  limit is the signal, not the method; most S1 patients carry little left/right information.
+  S1 Task A is the wrong place to look for gains. Focus Task B (MI vs rest) on S3/S5, where
+  the signal is stronger.
 
 ### 2026-10-21 · Gate G1, attempt 3 (authors' code + authors' raw data): resolved, not reproducible
 

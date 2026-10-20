@@ -38,7 +38,7 @@ from hemishift.eval.stats import paired_comparison
 from hemishift.paths import RESULTS_DIR
 
 
-VARIANTS = ("own", "pooled", "balanced", "rotate", "mdwm")
+VARIANTS = ("own", "pooled", "balanced", "mdwm")  # "rotate" is opt-in: --rotate
 
 
 def covariances(X):
@@ -84,7 +84,12 @@ def main():
     parser = argparse.ArgumentParser(description="Pooled vs own-trials premise check on S1.")
     parser.add_argument("--k", type=int, default=10, help="calibration trials per class")
     parser.add_argument("--limit", type=int, default=None, help="score only the first N patients")
+    parser.add_argument("--rotate", action="store_true",
+                        help="also run TLRotate (~13 s per source patient per target: hours for S1)")
     args = parser.parse_args()
+    global VARIANTS
+    if args.rotate:
+        VARIANTS = VARIANTS + ("rotate",)
 
     dataset, affected_side, group = moabb_cohort("liu2024")
     epochs = load_moabb_epochs(dataset, affected_side, cohort="liu2024", group=group)
@@ -120,7 +125,7 @@ def main():
                "own": accuracy(own.predict(C_target[test])),
                "pooled": accuracy(pooled.predict(C_target[test])),
                "balanced": accuracy(balanced.predict(C_target[test]))}
-        for kind in ("rotate", "mdwm"):  # these align raw covariances themselves
+        for kind in [v for v in ("mdwm", "rotate") if v in VARIANTS]:  # align raw covariances
             row[kind] = accuracy(transfer_predict(kind, C_all[others], y_all[others],
                                                   patients[others], C_all[rows][calib],
                                                   y_target[calib], C_all[rows][test], target))
@@ -128,7 +133,8 @@ def main():
         print(target + ": " + "  ".join(f"{k} {row[k]:.0f}" for k in VARIANTS))
 
     table = pd.DataFrame(rows_out)
-    out = RESULTS_DIR / "summary" / f"premise_check_liu2024_k{args.k}.csv"
+    suffix = f"_first{args.limit}" if args.limit else ""  # test runs never overwrite full ones
+    out = RESULTS_DIR / "summary" / f"premise_check_liu2024_k{args.k}{suffix}.csv"
     table.to_csv(out, index=False)
     print(f"\nown (R0) mean {table['own'].mean():.1f} %   (results in {out})")
     for variant in VARIANTS[1:]:
