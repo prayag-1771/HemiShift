@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hemishift"
+version = "0.0.1"
+description = "HemiShift: physiology-informed healthy-to-stroke simulation for motor-imagery BCI decoding"
+requires-python = ">=3.10"
+# Runtime dependencies are pinned in requirements.txt; torch is installed from the CUDA index (README).
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

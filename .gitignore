@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+
+# Raw and harmonised EEG never go into git (sizes in PLAN.md §3).
+# Anchored with a leading slash so the code package src/hemishift/data/ stays tracked.
+/data/
+
+# Run outputs; only small summary tables are kept.
+/results/*
+!/results/summary/
