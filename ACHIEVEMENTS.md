@@ -53,6 +53,69 @@ only.
 - **Re-runs:** step 3c (`s1_deep.py`) and step 4 (`s1_lesionsim.py`) are being re-run with
   the fix. The step 3c numbers below are from before the fix.
 
+### 2026-10-21 · S1 step 3e: classical decoder upgrades (34 dev patients)
+
+`scripts/s1_classical.py`.
+- **Evaluation:** blocked 4-fold CV. Every filter, reference and model is fitted on training
+  trials only. All variants use the first 39 trials (40 for patient 20), so the baseline equals
+  step 3d's "fixed" decoder.
+- **Statistics:** Holm across the 11 variants.
+- **Results** in `results/summary/s1_classical_dev.csv`:
+
+| Variant | Mean | ≥ 65 % | vs base (median, p, Holm) | Helped / harmed |
+|---|---|---|---|---|
+| base: TS + LR, MI 0.5–4 s, 8–30 Hz | 57.4 % | 8 | — | — |
+| **ens16: mean probability of the 16 step-3d candidates** | **61.5 %** | **13** | **+2.6, p 0.011 (Holm 0.12)** | **20 / 9** |
+| motor8: 8 motor-strip channels | 58.3 % | 9 | +2.6, p 0.25 | 19 / 13 |
+| ens12: the 12 MI-window candidates only | 58.2 % | 10 | 0.0, p 0.69 | 15 / 13 |
+| full29: all 29 channels | 57.2 % | 10 | +1.3, p 0.81 | 17 / 14 |
+| potato: drop outlier training trials | 56.6 % | 6 | −2.6, p 0.39 | 10 / 18 |
+| crops2s: five 2 s crops per trial | 56.5 % | 9 | −2.5, p 0.79 | 14 / 18 |
+| mdm | 56.2 % | 7 | −2.6, p 0.33 | 11 / 19 |
+| C = 0.1 | 55.9 % | 6 | −1.3, p 0.21 | 12 / 17 |
+| lda (shrinkage) | 55.8 % | 10 | −2.6, p 0.14 | 8 / 20 |
+| fgmdm | 55.8 % | 9 | −2.5, p 0.10 | 8 / 18 |
+| csp (3 pairs) + LDA | 55.7 % | 6 | −2.6, p 0.10 | 8 / 20 |
+
+- **Best candidate so far: the window/band ensemble with the rebound window** (+4.1 points
+  mean). The gain needs the rebound window (4–6 s after MI onset, the break): ens12 without
+  it gives only +0.8. So the post-imagery period adds information that the MI period lacks.
+- Averaging all candidates (61.5 %) beats picking one per patient (step 3d nested, 59.2 %).
+  With 30 training trials, averaging is more robust than selecting.
+- **Caveats:**
+  - Exploratory and not Holm-significant, so it needs the locked test set.
+  - Trials alternate L/R, so in the break a patient may already prepare the next (opposite)
+    hand. Rebound-window information can mix post-imagery beta rebound with that
+    anticipation. Both are motor signals, but a real BCI's sequence is not predictable.
+- Everything else (regularisation, LDA, MDM/FgMDM, CSP, channel sets, crops, outlier removal)
+  gives no gain. The baseline decoder is not the bottleneck.
+
+### 2026-10-21 · S1 step 3f: slow cortical potentials (MRCP) as a second source (dev)
+
+`scripts/s1_slow.py`, first run.
+- **Features:** 0.1–3 Hz, the 8 motor-strip channels, mean amplitude in 0.5 s bins over
+  MI 0.5–4 s, shrinkage LDA. Blocked 4-fold CV, 40 trials.
+- **Results** in `results/summary/s1_slow_dev.csv`:
+
+| Variant | Mean | ≥ 65 % | vs ERD base (median, p) |
+|---|---|---|---|
+| ERD base (TS + LR) | 57.7 % | 8 | — |
+| slow | 57.2 % | 10 | −1.3, p 0.98 |
+| slow after EOG regression | 57.4 % | 10 | −1.3, p 0.94 |
+| EOG channels only (control) | 55.4 % | 8 | +1.2, p 0.48 |
+| hybrid (mean of ERD + slow) | 57.7 % | 8 | −2.5, p 0.88 |
+| hybrid + EOG regression | 59.4 % | 9 | 0.0, p 0.59 |
+
+- **Slow potentials decode as well as ERD, but in different patients.**
+  - Spearman ρ between per-patient ERD and slow accuracy is 0.00 (0.13 after EOG regression).
+  - Above chance: ERD {7, 15, 20, 22, 23, 28, 40, 45}; slow {8, 9, 12, 15, 18, 20, 22, 28,
+    30, 44}.
+  - Plain averaging dilutes whichever source is noise for a given patient.
+- **Eye movements decode the class in 8 patients** (EOG-only control), so the slow features
+  need confound controls.
+- **Second run (in progress):** stacking and per-patient selection between the sources (inner
+  CV), plus occipital-only and C3 − C4 (LRP) controls.
+
 ### 2026-10-21 · S1 step 3d: per-patient window and band tuning, done honestly (nested CV, dev)
 
 `scripts/s1_nested.py`.
