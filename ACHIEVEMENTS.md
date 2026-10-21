@@ -71,6 +71,12 @@ label-free; each block holds 5 left + 5 right trials. Results in
   the MI window gets worse. A likely cause is that training trials were normalised by the
   calibration mean while test trials used a sliding mean. The consistent variant (both
   normalised by recent trials) comes next.
+- **Consistent causal variant** (calibration trials also normalised by their preceding trials):
+  MI 55.1 % (median −5.0, p 0.11); rebound 55.7 % (median 0.0, p 0.57).
+- **Verdict:** **drift correction gives no gain under real-time (causal) conditions.** The block
+  gain came from re-centring with *future* trials of the same block, a transductive look-ahead
+  that a BCI cannot use. It is dropped as an improvement, and noted as a pitfall: offline
+  re-centring can inflate results.
 
 ### 2026-10-21 · S1 step 3a: information outside the classic window? (34 dev patients)
 

@@ -152,7 +152,7 @@ def moabb_cohort(name):
 
 
 def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand", "right_hand"),
-                      subjects=None, window=MI_WINDOW_S):
+                      subjects=None, window=MI_WINDOW_S, template=MOTOR_TEMPLATE):
     """Epochs from a MOABB dataset object, harmonised patient by patient.
 
     `affected_side` maps a MOABB subject number to 'L' or 'R'. Stroke cohorts pass their
@@ -173,7 +173,7 @@ def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand"
     for subject in pd.unique(meta["subject"]):
         rows = np.flatnonzero(meta["subject"].to_numpy() == subject)
         side = affected_side(subject) if callable(affected_side) else affected_side[subject]
-        X, subject_labels = harmonise(data[rows], epochs.ch_names, labels[rows], side)
+        X, subject_labels = harmonise(data[rows], epochs.ch_names, labels[rows], side, template)
         parts.append(X)
         part_labels.extend(subject_labels)
         part_meta.append(pd.DataFrame({
@@ -189,4 +189,5 @@ def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand"
         X=np.concatenate(parts).astype(np.float32),
         labels=np.asarray(part_labels),
         meta=pd.concat(part_meta, ignore_index=True),
+        ch_names=tuple(template),
     )
