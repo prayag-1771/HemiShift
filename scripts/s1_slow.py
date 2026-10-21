@@ -11,6 +11,15 @@ Slow EEG is where eye movements live, and EOG is class-dependent in 8 dev patien
   +eogreg    slow features after regressing EOG out of the EEG (label-free, whole recording)
 Variants: base (ERD TS + LR, as in step 3a), slow, slow+eogreg, eog-only, and the hybrids
 (mean of the ERD and slow probabilities). Blocked 4-fold CV, all 40 trials.
+Per-patient ERD and slow accuracies turned out uncorrelated (first run), so two combiners that
+learn per patient which source to trust, from the training trials only:
+  stack      logistic regression on the two sources' out-of-fold logits (inner blocked CV
+             over the 3 training blocks)
+  select     the source (ERD, slow+eogreg or their mean) with the best inner-CV accuracy;
+             ties keep ERD
+And two more confound controls:
+  occipital  slow features from P7 O1 Oz O2 P8 (visual cortex: the class-specific hand video)
+  lrp        C3 - C4 only (the lateralised readiness potential, the most motor-specific part)
 
 Usage: .venv/Scripts/python -I scripts/s1_slow.py
 """
@@ -22,6 +31,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
 
 from hemishift.data.channels import EXTENDED_TEMPLATE
 from hemishift.data.harmonise import TARGET_SFREQ
@@ -37,6 +47,7 @@ classical = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(classical)
 
 MOTOR8 = classical.MOTOR8
+OCCIPITAL = ("P7", "O1", "Oz", "O2", "P8")
 SLOW_HZ = (0.1, 3.0)
 BIN_S = 0.5
 OUT = RESULTS_DIR / "summary" / "s1_slow_dev.csv"
@@ -57,9 +68,12 @@ def load(subject):
                                                  eog_regression=True))[0]
     eog = prepare_epochs(raw, Preprocessing(template=("HEOL", "VEOR"), band=SLOW_HZ,
                                             reference="all"))[0]
+    occipital = prepare_epochs(raw, Preprocessing(template=OCCIPITAL, band=SLOW_HZ,
+                                                  eog_regression=True))[0]
+    lrp = slow_reg[:, [MOTOR8.index("C3")]] - slow_reg[:, [MOTOR8.index("C4")]]
     y = (np.asarray(labels) == "right_hand").astype(int)
     return {"erd": classical.covariances(erd), "slow": binned(slow), "slow+eogreg": binned(slow_reg),
-            "eog-only": binned(eog)}, y
+            "eog-only": binned(eog), "occipital": binned(occipital), "lrp": binned(lrp)}, y
 
 
 def lda_proba(F, y, train, test):
@@ -67,12 +81,47 @@ def lda_proba(F, y, train, test):
     return model.predict_proba(F[test])[:, 1]
 
 
+SOURCES = {
+    "erd": lambda data, y, train, test: classical.ts_proba(data["erd"], y, train, test, classical.lr()),
+    "slow": lambda data, y, train, test: lda_proba(data["slow+eogreg"], y, train, test),
+}
+
+
+def out_of_fold(data, y, train):
+    """Each source's P(right) for the training trials, from the 3 training blocks held out in
+    turn."""
+    blocks = np.array_split(train, 3)
+    p = {name: np.empty(len(train)) for name in SOURCES}
+    start = 0
+    for i, held in enumerate(blocks):
+        fit_on = np.concatenate([b for j, b in enumerate(blocks) if j != i])
+        for name, source in SOURCES.items():
+            p[name][start:start + len(held)] = source(data, y, fit_on, held)
+        start += len(held)
+    return p
+
+
+def logit(p):
+    p = np.clip(p, 1e-3, 1 - 1e-3)
+    return np.log(p / (1 - p))
+
+
 def variants(data, y, train, test):
     out = {"base": classical.ts_proba(data["erd"], y, train, test, classical.lr())}
-    for name in ("slow", "slow+eogreg", "eog-only"):
+    for name in ("slow", "slow+eogreg", "eog-only", "occipital", "lrp"):
         out[name] = lda_proba(data[name], y, train, test)
     out["hybrid"] = (out["base"] + out["slow"]) / 2
     out["hybrid+eogreg"] = (out["base"] + out["slow+eogreg"]) / 2
+
+    inner = out_of_fold(data, y, train)
+    meta = LogisticRegression(C=1.0).fit(
+        np.column_stack([logit(inner["erd"]), logit(inner["slow"])]), y[train])
+    out["stack"] = meta.predict_proba(
+        np.column_stack([logit(out["base"]), logit(out["slow+eogreg"])]))[:, 1]
+    inner["mean"] = (inner["erd"] + inner["slow"]) / 2
+    candidates = {"erd": out["base"], "slow": out["slow+eogreg"], "mean": out["hybrid+eogreg"]}
+    hits = {name: np.mean((inner[name] > 0.5) == y[train]) for name in candidates}
+    out["select"] = candidates[max(hits, key=hits.get)]  # first of equal maxima: ERD
     return out
 
 
