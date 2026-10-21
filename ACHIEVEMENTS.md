@@ -111,6 +111,33 @@ Written and committed **before** any locked-test patient is loaded.
 - **Verdict:** not a loading bug. The HEFMI EEG carries almost no motor-imagery ERD, even in
   healthy controls, so S5 stays a low-signal cohort. It is reported as such, not tuned.
 
+### 2026-10-21 · S1 step 4: LesionSim pretraining (dev, after the alignment fix)
+
+`scripts/s1_lesionsim.py`.
+- **Setup:** EEGNet pretrained on each source, then fine-tuned per development patient
+  (blocked 4-fold CV). The LesionSim and generic copies are re-referenced after editing; the
+  aligned copies' scale is now 7–10, like the originals (the generic copy is 34, because white
+  noise fills directions the data lacks).
+- **Results** in `results/summary/s1_lesionsim_dev.csv`:
+
+| Pretraining data | Fine-tuned mean | vs own TS + LR (57.7 %) | Helped / harmed | vs healthy-only |
+|---|---|---|---|---|
+| healthy (PhysioNet, 109) | 56.5 % | median −2.5, p 0.60 | 13 / 18 | — |
+| + variability copy (O4b) | 54.5 % | −2.5, p 0.12 | 10 / 20 | −2.5, p 0.068 |
+| + contralesional-shift copy (O2) | 55.6 % | −2.5, p 0.32 | 15 / 18 | 0.0, p 0.26 |
+| + weaker-ERD copy (O1) | 56.2 % | −2.5, p 0.52 | 13 / 19 | 0.0, p 0.53 |
+| + LesionSim, all three | 55.4 % | −2.5, p 0.23 | 12 / 19 | −2.5, p 0.43 |
+| + generic copy (control) | 54.4 % | −5.0, p 0.10 | 11 / 21 | −2.5, p 0.19 |
+| **+ the other dev patients (real stroke)** | **56.0 %** | −2.5, p 0.44 | 14 / 19 | 0.0, p 0.73 |
+
+- **LesionSim does not improve healthy-to-stroke transfer on S1 Task A.** No operator, alone
+  or combined, beats healthy-only pretraining.
+- **Even real stroke data does not help.** Pretraining on the other 33 patients' trials gives
+  the same as healthy-only (56.0 vs 56.5 %). That bounds what any healthy-to-stroke
+  simulation can achieve here: the pretraining data is not the bottleneck; each patient's own
+  weak signal is.
+- **Pre-registered H1 (R3 > R2):** no support on S1 at the dev stage.
+
 ### 2026-10-21 · S1 step 3g: individual frequency band and a long window (dev)
 
 `scripts/s1_individual.py`; blocked 4-fold CV, first 39 trials; Holm over 4 variants.
