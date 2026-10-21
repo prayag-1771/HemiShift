@@ -111,6 +111,29 @@ Written and committed **before** any locked-test patient is loaded.
 - **Verdict:** not a loading bug. The HEFMI EEG carries almost no motor-imagery ERD, even in
   healthy controls, so S5 stays a low-signal cohort. It is reported as such, not tuned.
 
+### 2026-10-21 · S1 step 3j: phase coupling (lagged coherence), dev
+
+`scripts/s1_coherence.py`.
+- **Features:** lagged coherence over MI 0.5–4 s, averaged within mu and beta; the 91
+  channel pairs per band go to shrinkage LDA. Blocked 4-fold CV, first 39 trials. Results in
+  `results/summary/s1_coherence_dev.csv`.
+
+| Variant | Mean | ≥ 65 % | vs base (median, p, Holm) |
+|---|---|---|---|
+| base | 57.4 % | 8 | — |
+| coh-mu | 52.4 % | 2 | −3.8, p 0.046 |
+| coh-beta | 46.7 % | 1 | −10.3, p < 0.001 |
+| coh-both | 51.4 % | 2 | −5.1, p 0.004 |
+| ens16 | 61.5 % | 13 | +2.6, p 0.011 |
+| ens16 + coh (mean probability) | 52.4 % | 2 | −5.1, p 0.012 |
+
+- **Lagged coherence carries no left/right information here.** It sits at or below chance;
+  below-chance means with no signal come from drift across blocks.
+- **Lesson for combining models:** averaging probabilities lets an overconfident member
+  dominate. LDA on many features outputs near-0/1 probabilities, so ens16 + coh drops to the
+  coherence model's accuracy. The CBraMod probe's "fm+erd" shows the same pattern.
+  Combinations need calibrated scores (e.g. standardised logits) or rank averaging.
+
 ### 2026-10-21 · S1 step 4: LesionSim pretraining (dev, after the alignment fix)
 
 `scripts/s1_lesionsim.py`.
