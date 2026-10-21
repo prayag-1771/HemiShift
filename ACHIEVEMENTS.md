@@ -36,6 +36,27 @@ only.
 
 ## Log
 
+### 2026-10-21 · PRE-REGISTRATION: S1 locked-test evaluation of the frozen ens16 pipeline
+
+Written and committed **before** any locked-test patient is loaded.
+- **Frozen pipeline (S1-ens16, from step 3e):**
+  - 14 channels (EXTENDED template), 1–40 Hz, template common average, 128 Hz.
+  - First 39 trials per recording (the rebound window cuts the last).
+  - 16 candidates = 4 windows (MI 0.5–4, 0.5–2.5, 2–4 s; rebound 4–6 s) × (mu 8–13, beta
+    13–30, 8–30 Hz, filter bank of all three).
+  - Each candidate: OAS covariances, re-centring on the training mean, tangent space, LR
+    (C = 1).
+  - Decision = mean of the 16 P(right hand) > 0.5.
+- **Comparator:** the base decoder (MI 0.5–4 s, 8–30 Hz, same model), on the same trials.
+- **Evaluation:** blocked 4-fold CV per patient (as on dev), on the 15 locked-test patients
+  (`configs/splits/liu2024_locked_test.json`, hash 4999799d11). No patient excluded unless the
+  label-free quality rule in `liu2024_raw.EXCLUDED` already excludes them.
+- **Hypothesis:** ens16 > base. One-sided Wilcoxon signed-rank on per-patient accuracy,
+  p < 0.05. Also reported: mean difference with bootstrap 95 % CI, helped/harmed, patients at
+  or above the chance threshold.
+- **Run once.** Whatever the outcome, it is reported. No pipeline change after seeing the
+  test result is evaluated on these patients again.
+
 ### 2026-10-21 · Bug fix: Euclidean alignment amplified the common-average null direction
 
 - **Symptom:** in the first LesionSim run (step 4), every patient scored exactly 50.0 % with
