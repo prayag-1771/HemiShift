@@ -1,4 +1,6 @@
-"""Premise check: does pooling other patients beat a patient's own few trials? (S1, Task A)
+"""Premise check: does pooling other patients beat a patient's own few trials?
+
+--cohort liu2024 (S1, Task A, the default) or wang2026sf (S3, Task B: affected-hand MI vs rest).
 
 Everything in HemiShift assumes that more (aligned) data from other people helps a new
 patient. Before building on that, test it on the hardest cohort with a fast Riemannian model:
@@ -80,8 +82,36 @@ def transfer_predict(kind, C_src, y_src, d_src, C_cal, y_cal, C_test, target):
     return make_pipeline(*steps).fit(X, y_encoded).predict(C_test)
 
 
+def load_task(cohort):
+    """(X, y, patients) in recording order within each patient.
+
+    liu2024    Task A: affected vs unaffected hand (left/right, lesion normalised)
+    wang2026sf Task B: affected-hand MI vs the rest epoch right before it, pre-training phase
+    """
+    if cohort == "liu2024":
+        dataset, affected_side, group = moabb_cohort("liu2024")
+        epochs = load_moabb_epochs(dataset, affected_side, cohort="liu2024", group=group)
+        return epochs.X, epochs.labels, epochs.meta["patient"].to_numpy()
+    if cohort == "wang2026sf":
+        from hemishift.data.loaders import load_wang2026sf_epochs, wang2026sf_affected_side
+
+        X_all, y_all, p_all = [], [], []
+        for subject in sorted(wang2026sf_affected_side()):
+            e = load_wang2026sf_epochs([subject], phases=("pre",))
+            mi = np.flatnonzero(e.labels == "affected_mi")
+            paired = mi[(mi > 0) & (e.labels[mi - 1] == "rest")]
+            order = np.ravel(np.column_stack([paired - 1, paired]))  # rest, MI, rest, MI, ...
+            X_all.append(e.X[order])
+            y_all.append(np.where(e.labels[order] == "rest", "rest", "mi"))
+            p_all.append(np.full(order.size, f"wang2026sf:{subject}"))
+            print(f"loaded wang2026sf:{subject} ({order.size} epochs)")
+        return np.concatenate(X_all), np.concatenate(y_all), np.concatenate(p_all)
+    raise ValueError(cohort)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Pooled vs own-trials premise check on S1.")
+    parser = argparse.ArgumentParser(description="Pooled vs own-trials premise check.")
+    parser.add_argument("--cohort", default="liu2024", choices=["liu2024", "wang2026sf"])
     parser.add_argument("--k", type=int, default=10, help="calibration trials per class")
     parser.add_argument("--limit", type=int, default=None, help="score only the first N patients")
     parser.add_argument("--rotate", action="store_true",
@@ -91,11 +121,8 @@ def main():
     if args.rotate:
         VARIANTS = VARIANTS + ("rotate",)
 
-    dataset, affected_side, group = moabb_cohort("liu2024")
-    epochs = load_moabb_epochs(dataset, affected_side, cohort="liu2024", group=group)
-    C_all = covariances(epochs.X)
-    y_all = epochs.labels
-    patients = epochs.meta["patient"].to_numpy()
+    X, y_all, patients = load_task(args.cohort)
+    C_all = covariances(X)
 
     # Training patients are aligned with all of their own trials (labels unused).
     aligned = np.empty_like(C_all)
@@ -134,7 +161,7 @@ def main():
 
     table = pd.DataFrame(rows_out)
     suffix = f"_first{args.limit}" if args.limit else ""  # test runs never overwrite full ones
-    out = RESULTS_DIR / "summary" / f"premise_check_liu2024_k{args.k}{suffix}.csv"
+    out = RESULTS_DIR / "summary" / f"premise_check_{args.cohort}_k{args.k}{suffix}.csv"
     table.to_csv(out, index=False)
     print(f"\nown (R0) mean {table['own'].mean():.1f} %   (results in {out})")
     for variant in VARIANTS[1:]:

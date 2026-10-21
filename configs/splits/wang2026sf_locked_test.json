@@ -1,0 +1,40 @@
+{
+  "cohort": "wang2026sf",
+  "created": "2026-10-21",
+  "seed": 20261021,
+  "strata": [
+    "Hemiplegia_side",
+    "duration > median (5.5 months)"
+  ],
+  "rule": "test patients are untouched during method development; only final evaluation",
+  "note": "locked before any method was tuned on S3; the decodability check and the no-tuning premise check used all 24",
+  "dev": [
+    2,
+    3,
+    7,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    16,
+    18,
+    19,
+    20,
+    21,
+    23,
+    24
+  ],
+  "test": [
+    1,
+    4,
+    5,
+    6,
+    8,
+    15,
+    17,
+    22
+  ],
+  "hash": "0a28a2e83d"
+}
