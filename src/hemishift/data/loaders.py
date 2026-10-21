@@ -80,7 +80,7 @@ def wang2026sf_affected_side():
             for pid, side in zip(table["subject_id"], table["Hemiplegia_side"])}
 
 
-def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S):
+def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S, template=MOTOR_TEMPLATE):
     """S3 epochs (rest / affected-hand MI / sixth-finger MI) from the raw EEGLAB runs.
 
     Each 14 s trial is an 8 s rest then a 6 s MI, so `window` (seconds from each event
@@ -114,7 +114,8 @@ def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S):
                 X_subject.append(fix_length(epochs.get_data(copy=False)) * 1e6)
                 y_subject.extend(names[code] for code in epochs.events[:, 2])
                 meta_subject.extend([(phase, run_index)] * len(epochs))
-        X, y = harmonise(np.concatenate(X_subject), epochs.ch_names, y_subject, sides[subject])
+        X, y = harmonise(np.concatenate(X_subject), epochs.ch_names, y_subject, sides[subject],
+                         template)
         parts.append(X)
         labels.extend(y)
         metas.append(pd.DataFrame({
@@ -124,7 +125,7 @@ def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S):
             "group": "stroke",
         }))
     return EpochSet(X=np.concatenate(parts).astype(np.float32), labels=np.asarray(labels),
-                    meta=pd.concat(metas, ignore_index=True))
+                    meta=pd.concat(metas, ignore_index=True), ch_names=tuple(template))
 
 
 def moabb_cohort(name):

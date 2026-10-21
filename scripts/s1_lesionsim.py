@@ -36,12 +36,18 @@ from hemishift.augment.lesionsim import (
     vary_erd,
 )
 from hemishift.data.channels import EXTENDED_TEMPLATE
-from hemishift.data.harmonise import TARGET_SFREQ, normalise_lesion_side
+from hemishift.data.harmonise import TARGET_SFREQ, common_average, normalise_lesion_side
 from hemishift.data.liu2024_raw import EXCLUDED, load_raw, participants
 from hemishift.data.loaders import load_moabb_epochs, moabb_cohort
 from hemishift.data.splits import blocked_folds
 from hemishift.eval.stats import paired_comparison
-from hemishift.models.deep import euclidean_alignment, make_eegnet, predict_proba, train
+from hemishift.models.deep import (
+    euclidean_alignment,
+    inverse_sqrt,
+    make_eegnet,
+    predict_proba,
+    train,
+)
 from hemishift.paths import CONFIG_DIR, RESULTS_DIR
 from hemishift.preprocess.pipeline import Preprocessing, prepare_epochs
 
@@ -88,7 +94,7 @@ def lesionsim_copy(X, subjects, rest_amp, ops, seed):
         if "variability" in ops:
             x = vary_erd(x, TARGET_SFREQ, CHANNELS, mu, spread=0.5, rng=rng, band=MU_HZ)
             x = vary_erd(x, TARGET_SFREQ, CHANNELS, beta, spread=0.5, rng=rng, band=BETA_HZ)
-        out[rows] = x
+        out[rows] = common_average(x)  # the edits act per channel; re-reference like real data
     return out.astype(np.float32)
 
 
@@ -98,7 +104,7 @@ def generic_copy(X, seed):
     rng = np.random.default_rng(seed)
     gain = np.exp(rng.normal(0.0, 0.3, size=X.shape[:2]))[..., None]
     noise = rng.normal(size=X.shape) * 0.3 * X.std(axis=-1, keepdims=True)
-    return (X * gain + noise).astype(np.float32)
+    return common_average(X * gain + noise).astype(np.float32)
 
 
 def align_with_original(X_parts, subjects):
@@ -108,9 +114,8 @@ def align_with_original(X_parts, subjects):
     out = [np.empty_like(part) for part in X_parts]
     for s in np.unique(subjects):
         rows = np.flatnonzero(subjects == s)
-        covs = np.einsum("nct,ndt->ncd", original[rows], original[rows]) / original.shape[-1]
-        values, vectors = np.linalg.eigh(covs.mean(axis=0))
-        W = vectors @ np.diag(1.0 / np.sqrt(np.maximum(values, 1e-12))) @ vectors.T
+        x = original[rows].astype(float)
+        W = inverse_sqrt(np.einsum("nct,ndt->ncd", x, x).mean(axis=0) / x.shape[-1])
         for part, aligned in zip(X_parts, out):
             aligned[rows] = np.einsum("cd,ndt->nct", W, part[rows])
     return out
@@ -193,6 +198,8 @@ def main():
     }
     for name, extra in copies.items():
         parts = align_with_original([X_h] + extra, subjects_h)
+        print(f"[{name}] aligned scale (99.99th pct of |x|) per part: "
+              + ", ".join(f"{np.percentile(np.abs(p), 99.99):.1f}" for p in parts))
         model = pretrain(np.concatenate(parts), np.concatenate([y_h] * len(parts)))
         table[name] = [finetune_accuracy(model, *patients[s]) for s in patients]
         print(f"[{name}] pretrained on {sum(len(p) for p in parts)} trials; "

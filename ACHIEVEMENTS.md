@@ -36,6 +36,51 @@ only.
 
 ## Log
 
+### 2026-10-21 · Bug fix: Euclidean alignment amplified the common-average null direction
+
+- **Symptom:** in the first LesionSim run (step 4), every patient scored exactly 50.0 % with
+  the +variability and +shift copies, i.e. the model predicted one class for everyone.
+- **Cause:** the data are common-average referenced, so the channel sum carries no variance.
+  `euclidean_alignment` (and the copy alignment in `s1_lesionsim.py`) used a plain inverse
+  square root, which scaled that direction by about 1e6.
+  - The LesionSim edits act per channel, so they break the zero sum. After alignment the
+    copies reached |x| ≈ 2 × 10⁷ (99.99th percentile 6.9 × 10⁶); the originals reached 46.
+  - Even on unedited data, the amplified float rounding added a noise direction to every
+    EEGNet input. That affects the step 3c numbers below.
+- **Fix:** `models.deep.inverse_sqrt` drops directions with variance below 1e-6 × the largest,
+  and covariances are computed in float64. LesionSim and generic copies are re-referenced
+  (common average) after editing, like real data. A unit test pins this down.
+- **Re-runs:** step 3c (`s1_deep.py`) and step 4 (`s1_lesionsim.py`) are being re-run with
+  the fix. The step 3c numbers below are from before the fix.
+
+### 2026-10-21 · S1 step 3d: per-patient window and band tuning, done honestly (nested CV, dev)
+
+`scripts/s1_nested.py`.
+- **Menu:** 16 candidates, from 4 windows (MI 0.5–4, 0.5–2.5, 2–4 s; rebound 4–6 s) ×
+  (mu, beta, 8–30 Hz, or a filter bank of all three).
+- **Selection:** each patient picks from its own training trials only. Inner loop: each of the
+  3 training blocks is held out once. The pick is then scored on the outer test block
+  (blocked 4-fold).
+- **Model and data:** TS + LR, 14 channels. The rebound window loses each recording's last
+  trial (it runs past the end of the file), so all candidates use the first 39 trials (40 for
+  patient 20).
+- **Results** in `results/summary/s1_nested_dev.csv`:
+
+| Method | Mean | ≥ 65 % (chance threshold) |
+|---|---|---|
+| Fixed (MI 0.5–4 s, 8–30 Hz) | 57.4 % | 8 / 34 |
+| Nested per-patient choice | 59.2 % | 10 / 34 |
+| Oracle (best candidate in hindsight) | 72.7 % | 26 / 34 |
+
+- **Nested vs fixed:** median +2.6 points, p = 0.40, helped 20 / harmed 13. **Not significant.**
+- **Picks** (136 = 34 × 4 folds): rebound 47, MI 0.5–2.5 s 35, MI 0.5–4 s 29, MI 2–4 s 25. By
+  band: beta 46, 8–30 Hz 36, mu 30, filter bank 24. The default was picked only 7 times, and
+  picks change from fold to fold within a patient. **There is no stable "best setting" per
+  patient.**
+- **Methodological finding:** "best window/band per subject" looks like 72.7 % but is really
+  59.2 %. The 13.5-point gap is selection luck on 40 trials. Per-subject tuning without nested
+  CV inflates small-data MI results this much.
+
 ### 2026-10-21 · S1 step 3c: deep learning; healthy pretraining causes negative transfer (dev)
 
 `scripts/s1_deep.py`.

@@ -13,12 +13,26 @@ from torch import nn
 from hemishift.paths import device
 
 
+def inverse_sqrt(cov, rtol=1e-6):
+    """Inverse matrix square root that leaves out (near-)null directions.
+
+    Common-average-referenced data has a direction with no variance (the channel sum). A plain
+    inverse square root scales it by about 1e6, which turns float rounding, or any later edit
+    that breaks the zero sum (e.g. a LesionSim copy), into huge values. Directions with variance
+    below `rtol` times the largest are set to zero instead.
+    """
+    values, vectors = np.linalg.eigh(cov)
+    keep = values > rtol * values.max()
+    scale = np.zeros_like(values)
+    scale[keep] = 1.0 / np.sqrt(values[keep])
+    return (vectors * scale) @ vectors.T
+
+
 def euclidean_alignment(X, reference):
     """Whiten every trial of X (n, channels, times) by the reference trials' mean covariance."""
-    covs = np.einsum("nct,ndt->ncd", X[reference], X[reference]) / X.shape[-1]
-    values, vectors = np.linalg.eigh(covs.mean(axis=0))
-    inv_sqrt = vectors @ np.diag(1.0 / np.sqrt(np.maximum(values, 1e-12))) @ vectors.T
-    return np.einsum("cd,ndt->nct", inv_sqrt, X).astype(np.float32)
+    Xr = np.asarray(X[reference], dtype=float)  # float64, so the null direction stays at ~0
+    covs = np.einsum("nct,ndt->ncd", Xr, Xr) / X.shape[-1]
+    return np.einsum("cd,ndt->nct", inverse_sqrt(covs.mean(axis=0)), X).astype(np.float32)
 
 
 def make_eegnet(n_chans, n_times, n_outputs=2, seed=0):

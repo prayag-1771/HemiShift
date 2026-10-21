@@ -1,7 +1,14 @@
 import numpy as np
 import pytest
 
-from hemishift.models.deep import euclidean_alignment, make_eegnet, predict_proba, random_crops, train
+from hemishift.models.deep import (
+    euclidean_alignment,
+    inverse_sqrt,
+    make_eegnet,
+    predict_proba,
+    random_crops,
+    train,
+)
 
 
 def test_euclidean_alignment_whitens_the_reference_set():
@@ -11,6 +18,19 @@ def test_euclidean_alignment_whitens_the_reference_set():
     aligned = euclidean_alignment(X, np.arange(30))
     mean_cov = np.einsum("nct,ndt->ncd", aligned, aligned).mean(0) / 200
     np.testing.assert_allclose(mean_cov, np.eye(4), atol=1e-4)
+
+
+def test_alignment_of_common_average_data_does_not_blow_up_the_null_direction():
+    rng = np.random.default_rng(2)
+    X = rng.normal(size=(30, 5, 200)).astype(np.float32) * 20
+    X -= X.mean(axis=1, keepdims=True)  # common average: channel sum is zero
+    W = inverse_sqrt(np.einsum("nct,ndt->ncd", X, X).mean(0) / 200)
+    # An edit that breaks the zero sum must not be amplified ~1e6 times.
+    edited = X.copy()
+    edited[:, 0] *= 0.5
+    assert np.abs(np.einsum("cd,ndt->nct", W, edited)).max() < 20
+    np.testing.assert_allclose(W @ np.ones(5), 0.0, atol=1e-6)
+    assert np.abs(euclidean_alignment(X, np.arange(30))).max() < 20
 
 
 def test_random_crops_have_the_requested_length():
