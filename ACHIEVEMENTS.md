@@ -36,6 +36,26 @@ only.
 
 ## Log
 
+### 2026-10-21 · RESULT: S1 locked test, frozen ens16 pipeline (run once, as pre-registered)
+
+`scripts/s1_locked_test.py`, 15 locked-test patients (none excluded), blocked 4-fold CV.
+Results in `results/summary/s1_locked_test.csv`.
+
+| | Base (MI 0.5–4 s, 8–30 Hz) | ens16 |
+|---|---|---|
+| Mean accuracy | 54.4 % | 58.0 % |
+| At or above chance (67 % for 39 trials) | 2 / 15 | 4 / 15 |
+
+- **ens16 − base:** mean +3.6 points; median 0.0 (bootstrap 95 % CI 0.0 to +7.7); helped 7,
+  harmed 3, tied 5.
+- **Pre-registered one-sided Wilcoxon: p = 0.083. The hypothesis is NOT confirmed at 0.05.**
+- **Reading:** the effect replicates in direction and size (+3.6 on test vs +4.1 on dev), but
+  15 patients, 5 of them tied, cannot confirm a 3–4 point gain.
+  - It stays a reproducible, non-significant trend.
+  - Confirming it would need more left/right stroke patients (UET175 once the password
+    arrives).
+  - No pipeline change will be evaluated on these 15 patients again.
+
 ### 2026-10-21 · PRE-REGISTRATION: S1 locked-test evaluation of the frozen ens16 pipeline
 
 Written and committed **before** any locked-test patient is loaded.
