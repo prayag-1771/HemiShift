@@ -50,8 +50,25 @@ only.
 - **Fix:** `models.deep.inverse_sqrt` drops directions with variance below 1e-6 × the largest,
   and covariances are computed in float64. LesionSim and generic copies are re-referenced
   (common average) after editing, like real data. A unit test pins this down.
-- **Re-runs:** step 3c (`s1_deep.py`) and step 4 (`s1_lesionsim.py`) are being re-run with
-  the fix. The step 3c numbers below are from before the fix.
+- **Re-runs:** step 3c (`s1_deep.py`) was re-run and its entry corrected below.
+  - Held-out healthy accuracy rose from 63.0 to 67.7 %.
+  - The significant negative transfer disappeared.
+  - Step 4 (`s1_lesionsim.py`) is being re-run.
+
+### 2026-10-21 · HEFMI-ICH (S5): why even healthy controls decode at chance
+
+- **Channel order:** MOABB hard-codes it. The files store the names as MATLAB string objects
+  (decoded from `__function_workspace__`), and they match MOABB's order exactly. Class names
+  are "Left"/"Right"; labels alternate 0/1.
+- **Data check:** each file holds 60 s of eyes-open and 60 s of eyes-closed rest.
+  - Eyes-closed/eyes-open alpha peaks at O1/O2/Oz/PO3/PO4 in most files.
+  - Slow eyes-open power (blinks) peaks at Fp1/Fp2/AF3/AF4.
+  - So the labels are right, and the EEG itself is real.
+- **Motor signal:** over the whole 37 s epoch, the healthy controls' mean 8–30 Hz power at
+  C3/Cz/C4 varies by only ±0.03 log units (about 3 %). A typical MI ERD is 20–40 %. The
+  left-minus-right laterality difference never exceeds 0.1 log units.
+- **Verdict:** not a loading bug. The HEFMI EEG carries almost no motor-imagery ERD, even in
+  healthy controls, so S5 stays a low-signal cohort. It is reported as such, not tuned.
 
 ### 2026-10-21 · S1 step 3e: classical decoder upgrades (34 dev patients)
 
@@ -113,8 +130,22 @@ only.
   - Plain averaging dilutes whichever source is noise for a given patient.
 - **Eye movements decode the class in 8 patients** (EOG-only control), so the slow features
   need confound controls.
-- **Second run (in progress):** stacking and per-patient selection between the sources (inner
-  CV), plus occipital-only and C3 − C4 (LRP) controls.
+- **Second run:** combiners that learn per patient which source to trust (inner blocked CV on
+  the training trials), plus two controls:
+
+| Variant | Mean | ≥ 65 % | vs ERD base (median, p, Holm over 9) |
+|---|---|---|---|
+| select (ERD, slow or mean; best inner CV) | 60.1 % | 12 | 0.0, p 0.59 |
+| stack (LR on the two sources' out-of-fold logits) | 58.5 % | 15 | −2.5, p 0.89 |
+| occipital slow features (visual control) | 53.6 % | 9 | −5.0, p 0.32 |
+| C3 − C4 only (LRP) | 52.1 % | 6 | −8.8, p 0.033 (Holm 0.30) |
+
+- **Verdict:** slow potentials add no reliable gain on S1.
+  - Selection and stacking help some patients (stack puts 15 above chance) but hurt others, so
+    the mean does not move.
+  - The pure motor LRP is weak (52 %), and the visual control is weak too (54 %). The
+    slow-feature information is spread out and patient-specific, not a clean lateralised
+    motor potential.
 
 ### 2026-10-21 · S1 step 3d: per-patient window and band tuning, done honestly (nested CV, dev)
 
@@ -144,31 +175,31 @@ only.
   59.2 %. The 13.5-point gap is selection luck on 40 trials. Per-subject tuning without nested
   CV inflates small-data MI results this much.
 
-### 2026-10-21 · S1 step 3c: deep learning; healthy pretraining causes negative transfer (dev)
+### 2026-10-21 · S1 step 3c: deep learning, CORRECTED after the alignment fix (dev)
 
 `scripts/s1_deep.py`.
 - **Pretraining:** EEGNet on 4,409 PhysioNet healthy trials (14 channels, per-subject
-  Euclidean alignment, random 2 s crops, 60 epochs). Held-out healthy subjects reach 63.0 %,
-  so pretraining works.
+  Euclidean alignment, random 2 s crops, 60 epochs). Held-out healthy subjects reach 67.7 %
+  (63.0 % before the fix), so pretraining works.
 - **Patients:** blocked 4-fold CV per development patient (lesion normalised, alignment from
   training folds). Results in `results/summary/s1_deep_dev.csv`.
 
 | Method | Mean | ≥ 65 % | vs own TS + LR | Helped / harmed |
 |---|---|---|---|---|
 | Own TS + LR (reference) | 57.7 % | 8 | — | — |
-| EEGNet from scratch (30 trials) | 56.2 % | 7 | median 0.0, p 0.51 | 13 / 16 |
-| Healthy-pretrained, zero-shot | 51.3 % | 1 | **median −5.0, p 0.006** | 7 / 24 |
-| Healthy-pretrained + fine-tuned | 53.4 % | 0 | **median −2.5, p 0.034** | **7 / 22** |
+| EEGNet from scratch (30 trials) | 57.4 % | 6 | median 0.0, p 0.94 | 16 / 15 |
+| Healthy-pretrained, zero-shot | 51.2 % | 1 | **median −6.2, p 0.017** | 10 / 21 |
+| Healthy-pretrained + fine-tuned | 55.7 % | 6 | median 0.0, p 0.26 | 15 / 16 |
 
 - **Deep learning does not beat the simple per-patient Riemannian decoder** on S1 Task A.
-- **Healthy pretraining causes significant negative transfer:** 22 of 34 patients are harmed
-  after fine-tuning. That replicates and strengthens Via et al. 2026 (21/50 harmed) with a
-  modern deep model under leakage-safe evaluation.
-- This is the exact problem C2 (LesionSim: make healthy data stroke-like) and C3
-  (SafeTransfer: refuse harmful transfer) target.
-- **Next experiment:** pretrain on healthy + LesionSim-transformed data (variability and
-  contralesional shift, the operators the gap diagnosis supports), then test whether the
-  negative transfer shrinks.
+- **Retracted:** "healthy pretraining causes significant negative transfer". Before the fix,
+  fine-tuning gave 53.4 % with 22/34 harmed (p 0.034). That was mostly the alignment bug: the
+  amplified null direction fed noise into every input.
+  - After the fix, fine-tuned transfer is no better and no worse than the own decoder
+    (15 helped / 16 harmed, n.s.).
+  - Zero-shot healthy transfer is still clearly worse than a per-patient decoder.
+  - Via et al. 2026's 21/50 harmed remains the literature reference. Our pipeline shows
+    transfer that *does not help* rather than transfer that hurts.
 
 ### 2026-10-21 · S1 step 3b: within-session drift correction, the first significant gain (dev, exploratory)
 
