@@ -36,6 +36,31 @@ only.
 
 ## Log
 
+### 2026-10-21 · S1 deep-dive step 2: preprocessing (34 dev patients): no significant gain
+
+`scripts/s1_preprocessing.py`; R0 = TS + LR on 8–30 Hz, first 10 + 10 trials, tested on the
+last 20. Results in `results/summary/s1_preprocessing_dev.csv`.
+
+| Variant | Mean | vs baseline (Wilcoxon, Holm) | ≥ 75 % |
+|---|---|---|---|
+| Baseline: core 9, CAR over them | 55.0 % | — | 5 |
+| Extended 14 motor channels | 57.1 % | +2.1 mean, p 0.22 (1.0) | 4 |
+| 14, CAR over all 29 | 56.5 % | p 0.43 | 5 |
+| + interpolate faulty channels | 54.7 % | p 0.96 | 4 |
+| + EOG regression | 54.9 % | p 0.95 | 3 |
+| Laplacian (CSD) | 53.8 % | p 0.72 | 1 |
+| All 29 channels | 56.2 % | p 0.57 | 5 |
+
+- **No preprocessing choice changes S1 Task A significantly.** Together with the audit
+  (lateralised signal at chance-level prevalence), every model at ~55 %, and the
+  non-reproducible paper, the evidence points to the left/right information being largely
+  **absent** from most S1 recordings, not hidden by bad processing.
+- **Power problem:** 20 test trials per patient means ±11 points per patient and a ~2-point SE
+  across 34. A +2-point effect cannot be resolved with one chronological split. Method
+  selection on dev will use blocked 4-fold CV (10 consecutive trials per fold, all 40 trials
+  scored). The final locked-test evaluation keeps the realistic first-k protocol.
+- **Kept going forward:** the extended 14-channel template (best mean, no harm).
+
 ### 2026-10-21 · S1 deep-dive step 1: data audit (34 dev patients, label-free checks)
 
 `scripts/audit_liu2024.py` and `hemishift.preprocess.quality`; results in
