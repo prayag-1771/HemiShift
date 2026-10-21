@@ -111,6 +111,110 @@ Written and committed **before** any locked-test patient is loaded.
 - **Verdict:** not a loading bug. The HEFMI EEG carries almost no motor-imagery ERD, even in
   healthy controls, so S5 stays a low-signal cohort. It is reported as such, not tuned.
 
+### 2026-10-21 · S3 steps 1 and 3: transfer and LesionSim on Tianjin Task B with 5 or 10 calibration pairs (dev)
+
+**Protocol (both steps):** P3 (chronological). The first k (rest, MI) pairs calibrate; the
+remaining 70 or 60 epochs test. 16 dev patients, 14 channels.
+
+**Step 1, deep transfer** (`scripts/s3_transfer.py`): EEGNet, fine-tuned on the calibration
+epochs. Results in `results/summary/s3_transfer_dev.csv`.
+
+| Decoder | k = 5 | k = 10 |
+|---|---|---|
+| own TS + LR | **81.7 %** (AUC 0.896) | **84.7 %** (0.912) |
+| EEGNet from scratch | 58.5 % | 59.9 % |
+| healthy-pretrained, zero-shot | 58.5 % | 60.2 % |
+| healthy-pretrained + fine-tuned | 76.6 % (10 harmed) | 76.3 % (12 harmed) |
+| + LesionSim copy | 76.3 % | 76.5 % |
+| + generic copy (control) | 74.5 % | 72.5 % |
+| + other dev patients (real stroke) | 77.2 % | 76.3 % |
+
+- Every deep variant trails the own Riemannian decoder by 5–10 points (Holm p ≤ 0.06).
+- Fine-tuning barely uses more calibration data (76.6 → 76.3 % from k = 5 to 10), so the
+  deep route under-adapts.
+- LesionSim = healthy-only, and both beat the generic control.
+
+**Step 3, LesionSim as extra data for the own Riemannian decoder** (`scripts/s3_augment.py`).
+- **Pooling:** donors are pooled with the calibration epochs. Each domain is re-centred on its
+  own mean, the tangent space is taken at the identity, and all donors together weigh as much
+  as the calibration. Results in `results/summary/s3_augment_dev.csv`.
+
+| Decoder | k = 5 | vs own (median, p, Holm) | k = 10 | vs own |
+|---|---|---|---|---|
+| own | 81.7 % | — | 84.7 % | — |
+| + healthy donors | 78.9 % | −2.9, p 0.16 | 84.3 % | −1.7, p 0.82 |
+| + LesionSim donors (population) | 79.7 % | 0.0, p 0.33 | 84.2 % | +1.7, p 0.64 |
+| + LesionSim donors (patient-matched) | 78.6 % | −2.1, p 0.10 | 83.5 % | 0.0, p 0.53 |
+| **+ other dev patients** | **84.0 %** | **+1.4, p 0.004 (Holm 0.018); 11 helped, 0 harmed ≥ 2 pts** | 86.1 % | +0.8, p 0.16 |
+
+- **Real stroke data from other patients improves the own decoder at k = 5:** +2.3 points
+  mean, 11 of 16 helped, none harmed by ≥ 2 points. At k = 10 the gain shrinks (+1.4, n.s.).
+- **LesionSim donors, population or patient-matched, do no better than unmodified healthy
+  donors.** Neither beats own.
+- **Why patient matching cannot work here:**
+  - Patient-matched settings were mostly clipped at α = 1, β = 1 (median). The patients'
+    relative ipsilesional mu ERD is mostly *not* weaker than healthy subjects' (healthy:
+    −13 % ipsilateral, −9 % contralateral).
+  - This chronic cohort does not show the "weaker lesioned-side ERD" that operator O1
+    assumes. That matches the gap diagnosis, where mean power did not differ after
+    correction and only variability did.
+- **Verdict on C2 / H1 (dev):** LesionSim gives no measurable benefit in any of the four ways
+  tested:
+  1. deep pretraining on S1
+  2. deep pretraining on S3
+  3. population-mode donors for the Riemannian decoder
+  4. patient-matched donors for the Riemannian decoder
+
+  Real other-patient data does help, but only Riemannian pooling at k = 5 on Task B.
+
+### 2026-10-21 · S1 step 3i: calibration-only screening finds who can use a left/right BCI (dev)
+
+`scripts/s1_screening.py`.
+- **Protocol P3 (chronological):** each patient calibrates on its first 20 trials and is
+  tested on the next 19 (20 for patient 20).
+- **Gate:** base and ens16 are scored by leave-one-pair-out CV on the 20 calibration trials.
+  The SafeTransfer gate picks the better one, or abstains unless it beats chance (exact
+  binomial, Bonferroni over the 2: ≥ 15/20).
+- **Results** in `results/summary/s1_screening_dev.csv`:
+
+| | Patients | Test accuracy (mean) |
+|---|---|---|
+| Gate passes ("usable signal") | 8 / 34 | **72.6 %** (60–89 %) |
+| Gate abstains | 26 / 34 | 51.8 % (only 1 above chance) |
+
+- **Passed vs abstained:** one-sided Mann–Whitney p < 0.001.
+- **Calibration CV vs test accuracy:** Spearman ρ = 0.48 (p = 0.004).
+- **Always-ens16 vs always-base** in this protocol: 59.7 vs 55.8 %. The step 3e gain holds
+  under chronological calibration too.
+- **Clinical scores do not predict decodability.** ens16 test accuracy vs NIHSS: ρ = −0.05;
+  vs days since stroke: −0.13; vs rhythm peak: −0.22 (all n.s.). Only a short EEG calibration
+  tells who will succeed.
+- **Reading:**
+  - This is the first clinically usable S1 result. Twenty calibration trials (about 3
+    minutes) separate the quarter of patients whose left/right MI decodes well on later
+    trials (72.6 %) from those who would get chance-level, misleading feedback (51.8 %).
+  - That is the abstention arm of C3 working as designed.
+  - Exploratory (dev); confirmation on the locked test is to be pre-registered.
+
+### 2026-10-21 · S1 step 3h: EEG foundation model (CBraMod, frozen, linear probe), dev
+
+`scripts/s1_foundation.py`.
+- **Model:** CBraMod pretrained on TUEG (braindecode "braindecode/cbramod-pretrained";
+  weights verified loaded), with a frozen encoder.
+- **Input and classifier:** 200 Hz, 100 µV units, MI 0.5–4.5 s (4 patches). Shrinkage LDA on
+  patch-averaged embeddings. Blocked 4-fold CV.
+
+| Variant | Mean | ≥ 65 % | vs base 57.4 % (median, p) |
+|---|---|---|---|
+| fm-mean (200 features) | 52.1 % | 3 | −5.0, p 0.040 |
+| fm-chan (14 × 200) | 52.7 % | 7 | −8.7, p 0.10 |
+| fm + ERD (mean probability) | 52.9 % | 7 | −7.5, p 0.12 |
+
+- **The foundation-model features decode left/right worse than covariances.** The C4 arm
+  (foundation models as a baseline) is answered for S1: no gain.
+- The fm + ERD row equals fm-chan because LDA's overconfident probabilities dominate the
+  average (see step 3j).
+
 ### 2026-10-21 · S1 step 3j: phase coupling (lagged coherence), dev
 
 `scripts/s1_coherence.py`.
