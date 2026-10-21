@@ -36,6 +36,29 @@ only.
 
 ## Log
 
+### 2026-10-21 · S1 step 3b: within-session drift correction, the first significant gain (dev, exploratory)
+
+`scripts/s1_drift.py`: blocked 4-fold CV, own decoder, 14 channels. In the "block" variant,
+each block of 10 consecutive trials is re-centred on its own Riemannian mean. This is
+label-free; each block holds 5 left + 5 right trials. Results in
+`results/summary/s1_drift_dev.csv`.
+
+| Window | Global re-centring | Block re-centring | Median gain | p | Helped / harmed |
+|---|---|---|---|---|---|
+| MI 0.5–4 s | 57.7 % (8 > chance, 2 < chance) | 59.0 % (12 >, 1 <) | +2.5 | 0.106 | 18 / 12 |
+| **Rebound 4–6 s** | 58.6 % (10 >, 1 <) | **61.1 % (11 >, 0 <)** | **+5.1** | **0.0205** | **21 / 8** |
+
+- **This is the first significant improvement on S1 Task A.** Signals drift during the session,
+  and re-centring per block removes the drift.
+- **Exploratory:** it is the best of ~12 dev comparisons today, so it is a candidate, not a
+  claim.
+- **Caveat:** block re-centring uses the whole test block (unlabelled, including later trials).
+  A real-time BCI needs the causal version, a running mean of past trials only.
+- **To do before any claim:**
+  1. Implement and test causal adaptive re-centring.
+  2. Freeze the candidate pipeline (rebound window + causal re-centring).
+  3. Evaluate it once on the 15 locked test patients.
+
 ### 2026-10-21 · S1 step 3a: information outside the classic window? (34 dev patients)
 
 `scripts/s1_information.py`: own decoder, 14 channels, blocked 4-fold CV (all 40 trials scored,
