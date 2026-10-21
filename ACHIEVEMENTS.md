@@ -36,6 +36,26 @@ only.
 
 ## Log
 
+### 2026-10-21 · S1 step 3a: information outside the classic window? (34 dev patients)
+
+`scripts/s1_information.py`: own decoder, 14 channels, blocked 4-fold CV (all 40 trials scored,
+30 trained). Results in `results/summary/s1_information_dev.csv`.
+
+| Variant | Mean | ≥ 65 % (chance threshold, 40 trials) | vs MI (Holm) |
+|---|---|---|---|
+| MI 0.5–4 s | 57.7 % | 8 | — |
+| Rebound 4–6 s (break) | 58.6 % | 10 | p 0.84 (1.0) |
+| Healthy side + midline, MI | 55.7 % | 7 | p 0.46 (1.0) |
+| MI + rebound 0.5–6 s | 55.8 % | 7 | p 0.36 (1.0) |
+| Healthy side, MI + rebound | 55.8 % | 7 | p 0.25 (0.99) |
+
+- **No source beats the classic window on average.** Training on 30 trials instead of 20 lifts
+  the mean to ~58 %, so data quantity matters.
+- **Two patients (1, 16) are significantly below chance** (≤ 30 %). That points to within-session
+  non-stationarity (drift flips the decision rule) and motivates adaptive re-centring.
+- **The best variant differs by patient:** 18/34 pass 65 % in at least one, but picking after
+  scoring is optimistic. Per-patient selection must use training folds only.
+
 ### 2026-10-21 · Premise check on S3 Task B with only 5 + 5 calibration trials (all 24, no tuning)
 
 `premise_check.py --cohort wang2026sf --k 5`; tested on the remaining ~70 epochs per patient.
