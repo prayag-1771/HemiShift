@@ -36,6 +36,27 @@ only.
 
 ## Log
 
+### 2026-10-21 · Premise check on S3 Task B with only 5 + 5 calibration trials (all 24, no tuning)
+
+`premise_check.py --cohort wang2026sf --k 5`; tested on the remaining ~70 epochs per patient.
+
+| Model | Mean | Median | Worst patient |
+|---|---|---|---|
+| Own 5 + 5 (R0) | 80.8 % | 85.0 % | 47.1 % |
+| Pooled | 79.5 % | 84.3 % | 54.3 % |
+| Balanced pooling | 81.7 % | 84.3 % | 55.7 % |
+| MDWM | 81.1 % | 83.6 % | 60.0 % |
+
+- **Task B is easy enough that 10 trials already give ~81 %,** so the mean has little headroom.
+  None of the mean differences is significant (p 0.19–0.61).
+- **Transfer lifts the floor.** Among the 6 weakest patients (by their own score), balanced
+  pooling gives +5.2 pts (5/6 improved) and MDWM +4.5 (5/6).
+  - **Caveat:** selecting by the own score invites regression to the mean. A fair test must
+    select weak patients on independent data, as SafeTransfer's calibration-based estimate
+    will.
+- This is direct support for C3: decide per patient, and favour transfer where the own decoder
+  is weak.
+
 ### 2026-10-21 · S1 deep-dive step 2: preprocessing (34 dev patients): no significant gain
 
 `scripts/s1_preprocessing.py`; R0 = TS + LR on 8–30 Hz, first 10 + 10 trials, tested on the

@@ -64,6 +64,18 @@ def locked_test_split(table, id_col, strata_cols, n_test, seed=0):
     return dev, sorted(test)
 
 
+def blocked_folds(n_trials, n_folds=4):
+    """Contiguous blocks of trials in recording order, one test block per fold.
+
+    For comparing methods within a patient: every trial is scored once (more precise than a
+    single first-k split), and a test block's neighbours in time are never in the same fold.
+    Yields (train_indices, test_indices).
+    """
+    blocks = np.array_split(np.arange(n_trials), n_folds)
+    for i, test in enumerate(blocks):
+        yield np.concatenate([b for j, b in enumerate(blocks) if j != i]), test
+
+
 def split_hash(split):
     """Short, stable fingerprint of a split; recorded next to every reported number."""
     payload = json.dumps(split, sort_keys=True, default=str).encode()

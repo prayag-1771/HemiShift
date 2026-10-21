@@ -58,6 +58,16 @@ def test_locked_test_split_is_stratified_disjoint_and_reproducible():
     assert locked_test_split(table, "id", ["side", "severe"], n_test=15, seed=1)[1] == test
 
 
+def test_blocked_folds_cover_every_trial_once_in_contiguous_blocks():
+    from hemishift.data.splits import blocked_folds
+
+    folds = list(blocked_folds(40, n_folds=4))
+    tested = np.concatenate([test for _, test in folds])
+    np.testing.assert_array_equal(np.sort(tested), np.arange(40))
+    for train, test in folds:
+        assert np.all(np.diff(test) == 1) and not set(train) & set(test)
+
+
 def test_split_hash_is_stable_and_key_order_independent():
     assert split_hash({"a": [1, 2], "b": 3}) == split_hash({"b": 3, "a": [1, 2]})
     assert split_hash({"a": [1, 2]}) != split_hash({"a": [2, 1]})

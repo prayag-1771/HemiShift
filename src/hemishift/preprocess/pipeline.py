@@ -58,7 +58,8 @@ def prepare_epochs(raw, config, events=("left_hand", "right_hand")):
                         baseline=None, picks=names, preload=True, verbose="error")
     epochs = epochs.reorder_channels(sorted(names, key=lambda ch: config.template.index(canonical(ch))))
     epochs = epochs.resample(TARGET_SFREQ, verbose="error")
-    X = fix_length(epochs.get_data(copy=False))
+    X = fix_length(epochs.get_data(copy=False),
+                   int(round((config.window[1] - config.window[0]) * TARGET_SFREQ)))
     X = X * (1.0 if config.reference == "laplacian" else 1e6)  # CSD units differ; scale-free models
     if config.reference == "template":
         X = X - X.mean(axis=1, keepdims=True)
