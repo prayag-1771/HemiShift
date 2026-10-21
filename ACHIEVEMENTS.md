@@ -111,6 +111,27 @@ Written and committed **before** any locked-test patient is loaded.
 - **Verdict:** not a loading bug. The HEFMI EEG carries almost no motor-imagery ERD, even in
   healthy controls, so S5 stays a low-signal cohort. It is reported as such, not tuned.
 
+### 2026-10-21 · S1 step 3g: individual frequency band and a long window (dev)
+
+`scripts/s1_individual.py`; blocked 4-fold CV, first 39 trials; Holm over 4 variants.
+- **Rhythm peak:** found above the 1/f background (C3/C4/Pz, whole recording) in 24/34
+  patients. Patients without one keep 8–13 Hz.
+- **Results** in `results/summary/s1_individual_dev.csv`:
+
+| Variant | Mean | ≥ 65 % | vs base (median, p, Holm) | Helped / harmed |
+|---|---|---|---|---|
+| base | 57.4 % | 8 | — | — |
+| iband: mu band at the patient's peak ± 2 Hz | 53.4 % | 2 | −5.1, p 0.016 (Holm 0.049) | 10 / 20 |
+| long: one 0.5–6 s window, 8–30 Hz | 55.8 % | 7 | −2.6, p 0.44 | 14 / 18 |
+| ens16 (step 3e, reproduced exactly) | 61.5 % | 13 | +2.6, p 0.011 (Holm 0.043) | 20 / 9 |
+| ens16-i: ens16 with the individual band | 60.1 % | 11 | +2.6, p 0.10 | 19 / 12 |
+
+- **No gain from individual bands.** A narrow band at the peak is significantly worse: the
+  class information is not concentrated at the alpha peak.
+- **No gain from one long window.** Separate windows in an ensemble beat one window spanning
+  both MI and rebound (61.5 vs 55.8 %). The ensemble's strength is averaging over windows,
+  not simply more data per covariance.
+
 ### 2026-10-21 · S1 step 3e: classical decoder upgrades (34 dev patients)
 
 `scripts/s1_classical.py`.
