@@ -36,6 +36,32 @@ only.
 
 ## Log
 
+### 2026-10-21 · S1 step 3c: deep learning; healthy pretraining causes negative transfer (dev)
+
+`scripts/s1_deep.py`.
+- **Pretraining:** EEGNet on 4,409 PhysioNet healthy trials (14 channels, per-subject
+  Euclidean alignment, random 2 s crops, 60 epochs). Held-out healthy subjects reach 63.0 %,
+  so pretraining works.
+- **Patients:** blocked 4-fold CV per development patient (lesion normalised, alignment from
+  training folds). Results in `results/summary/s1_deep_dev.csv`.
+
+| Method | Mean | ≥ 65 % | vs own TS + LR | Helped / harmed |
+|---|---|---|---|---|
+| Own TS + LR (reference) | 57.7 % | 8 | — | — |
+| EEGNet from scratch (30 trials) | 56.2 % | 7 | median 0.0, p 0.51 | 13 / 16 |
+| Healthy-pretrained, zero-shot | 51.3 % | 1 | **median −5.0, p 0.006** | 7 / 24 |
+| Healthy-pretrained + fine-tuned | 53.4 % | 0 | **median −2.5, p 0.034** | **7 / 22** |
+
+- **Deep learning does not beat the simple per-patient Riemannian decoder** on S1 Task A.
+- **Healthy pretraining causes significant negative transfer:** 22 of 34 patients are harmed
+  after fine-tuning. That replicates and strengthens Via et al. 2026 (21/50 harmed) with a
+  modern deep model under leakage-safe evaluation.
+- This is the exact problem C2 (LesionSim: make healthy data stroke-like) and C3
+  (SafeTransfer: refuse harmful transfer) target.
+- **Next experiment:** pretrain on healthy + LesionSim-transformed data (variability and
+  contralesional shift, the operators the gap diagnosis supports), then test whether the
+  negative transfer shrinks.
+
 ### 2026-10-21 · S1 step 3b: within-session drift correction, the first significant gain (dev, exploratory)
 
 `scripts/s1_drift.py`: blocked 4-fold CV, own decoder, 14 channels. In the "block" variant,
