@@ -58,6 +58,19 @@ label-free; each block holds 5 left + 5 right trials. Results in
   1. Implement and test causal adaptive re-centring.
   2. Freeze the candidate pipeline (rebound window + causal re-centring).
   3. Evaluate it once on the 15 locked test patients.
+- **Causal check** (`s1_drift.py --causal`): calibrate on the first 10 + 10, then decode the last
+  20 in order, re-centring each trial on the 10 trials before it. Results in
+  `results/summary/s1_drift_causal_dev.csv`.
+
+  | Window | Static | Causal adaptive | Median change | p | Helped / harmed |
+  |---|---|---|---|---|---|
+  | MI 0.5–4 s | 57.1 % | 55.1 % | −5.0 | 0.11 | 9 / 18 |
+  | Rebound 4–6 s | 55.3 % | 56.7 % | +5.3 | 0.11 | 18 / 10 |
+
+  The gain only partly survives causally: the rebound trend is positive but not significant, and
+  the MI window gets worse. A likely cause is that training trials were normalised by the
+  calibration mean while test trials used a sliding mean. The consistent variant (both
+  normalised by recent trials) comes next.
 
 ### 2026-10-21 · S1 step 3a: information outside the classic window? (34 dev patients)
 
