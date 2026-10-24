@@ -36,6 +36,26 @@ only.
 
 ## Log
 
+### 2026-10-24 · RESULT A (not evaluable): S1 screening on the locked test
+
+`scripts/s1_screening.py --locked-test`, run once on the 15 S1 locked-test patients. Results in
+`results/summary/s1_screening_locked_test.csv`.
+- **The gate passed only 1 of 15 patients** (patient 11). On later trials that patient scored
+  78.9 %; the 14 abstained patients averaged 53.9 %.
+- **Primary hypothesis: NOT EVALUABLE.** The pre-registration required ≥ 2 patients per group.
+- **Secondary:** calibration-CV vs test accuracy, Spearman ρ = 0.37, one-sided p = 0.088 (n.s.).
+- **Always-ens16 vs always-base** in this protocol: 57.0 vs 55.6 %.
+- **Reading:**
+  - No false positive: the only patient passed decodes well.
+  - The gate is conservative. It abstained on several patients who scored 65–74 % on later
+    trials (25, 29, 37, 43), because their 20-trial calibration scores stayed below 15/20.
+  - The locked-test patients are weaker overall (blocked-CV base 54.4 % vs 57.4 % on dev),
+    so few could pass.
+  - **Descriptive only**, dev + test pooled: 9/49 passed; passed patients score far above
+    abstained ones.
+  - The screen's value is specificity, not sensitivity; it is not confirmed. With ens16
+    (p = 0.083), neither S1 locked-test hypothesis is confirmed.
+
 ### 2026-10-24 · RESULT B (confirmed): S3 patient pooling on the locked test
 
 `scripts/s3_locked_test.py`, run once on the 8 S3 locked-test patients (hash 0a28a2e83d), with
