@@ -10,10 +10,13 @@ score does not beat chance (Bonferroni over the two). Reported on the 19 test tr
   - Spearman correlation between calibration-CV and test accuracy
   - exploratory: test accuracy against NIHSS, days since stroke and the rhythm peak
 Results: results/summary/s1_screening_dev.csv.
+With --locked-test: the 15 locked-test patients instead (pre-registered in ACHIEVEMENTS.md,
+2026-10-24), one-sided statistics, results/summary/s1_screening_locked_test.csv.
 
-Usage: .venv/Scripts/python -I scripts/s1_screening.py
+Usage: .venv/Scripts/python -I scripts/s1_screening.py [--locked-test]
 """
 
+import argparse
 import importlib.util
 import json
 from pathlib import Path
@@ -38,7 +41,6 @@ classical = _script("s1_classical")
 locked = _script("s1_locked_test")  # its load(): the 12 covariance sets, first 39 trials
 
 N_CAL = 20
-OUT = RESULTS_DIR / "summary" / "s1_screening_dev.csv"
 
 
 def decoders(data, y, fit_on, predict_on):
@@ -48,12 +50,18 @@ def decoders(data, y, fit_on, predict_on):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Calibration-only BCI screening on S1.")
+    parser.add_argument("--locked-test", action="store_true",
+                        help="run the pre-registered confirmation on the locked-test patients")
+    args = parser.parse_args()
+    group = "test" if args.locked_test else "dev"
+    out = RESULTS_DIR / "summary" / f"s1_screening_{'locked_test' if args.locked_test else 'dev'}.csv"
     split = json.loads((CONFIG_DIR / "splits" / "liu2024_locked_test.json").read_text())
     peaks = RESULTS_DIR / "summary" / "s1_individual_dev.csv"  # rhythm peaks, step 3g
     audit = pd.read_csv(peaks).set_index("subject") if peaks.exists() else pd.DataFrame()
     clinical = participants()
     rows = []
-    for subject in split["dev"]:
+    for subject in split[group]:
         if subject in EXCLUDED:
             continue
         data, y = locked.load(subject)
@@ -74,26 +82,29 @@ def main():
         print(f"sub {subject:2d}: calibration base {correct['base']}/20 ens16 {correct['ens16']}/20 -> "
               f"{choice or 'ABSTAIN':7s} | test base {final['base']:.0f} ens16 {final['ens16']:.0f}")
     table = pd.DataFrame(rows)
-    table.to_csv(OUT, index=False)
+    table.to_csv(out, index=False)
 
     n_test = len(y) - N_CAL
-    print(f"\n{len(table)} dev patients; calibrate on {N_CAL}, test on the next {n_test} trials")
+    print(f"\n{len(table)} {group} patients; calibrate on {N_CAL}, test on the next {n_test} trials")
     for name in ("base", "ens16", "gate"):
         print(f"  always-{name:5s} mean {table[name].mean():5.1f} %")
     passed = table["choice"] != "abstain"
     print(f"  gate passed {passed.sum()}/{len(table)}: test accuracy {table.loc[passed, 'gate'].mean():.1f} % "
           f"vs abstained {table.loc[~passed, 'gate'].mean():.1f} %")
-    if passed.any() and (~passed).any():
+    if passed.sum() >= 2 and (~passed).sum() >= 2:
         u = stats.mannwhitneyu(table.loc[passed, "gate"], table.loc[~passed, "gate"], alternative="greater")
-        print(f"  passed > abstained: Mann-Whitney p = {u.pvalue:.3f}")
+        print(f"  passed > abstained: one-sided Mann-Whitney p = {u.pvalue:.4f}")
+    else:
+        print("  passed vs abstained: not evaluable (fewer than 2 patients in a group)")
     cal_best = table[["cal_base", "cal_ens16"]].max(axis=1)
-    rho = stats.spearmanr(cal_best, table["gate"])
-    print(f"  calibration-CV vs test accuracy: Spearman rho {rho.statistic:.2f} (p {rho.pvalue:.3f})")
+    rho = stats.spearmanr(cal_best, table["gate"], alternative="greater" if args.locked_test else "two-sided")
+    print(f"  calibration-CV vs test accuracy: Spearman rho {rho.statistic:.2f} "
+          f"({'one' if args.locked_test else 'two'}-sided p {rho.pvalue:.4f})")
     for column in ("nihss", "days", "peak_hz"):
         ok = table[column].notna()
         r = stats.spearmanr(table.loc[ok, column], table.loc[ok, "ens16"])
         print(f"  ens16 test accuracy vs {column}: rho {r.statistic:+.2f} (p {r.pvalue:.3f}, n {ok.sum()})")
-    print(f"results in {OUT}")
+    print(f"results in {out}")
 
 
 if __name__ == "__main__":

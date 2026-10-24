@@ -103,11 +103,12 @@ def lesionsim_copy(X, y, subjects, mirrored, rest_amp, seed):
     return out.astype(np.float32)
 
 
-def load_patients():
-    """Dev patients' (rest, MI) pairs in recording order: X (80, 14, 448), y (rest 0, MI 1)."""
+def load_patients(group="dev"):
+    """(rest, MI) pairs in recording order per patient of the split's `group` ("dev" or
+    "test"): X (80, 14, 448), y (rest 0, MI 1)."""
     split = json.loads((CONFIG_DIR / "splits" / "wang2026sf_locked_test.json").read_text())
     patients = {}
-    for subject in split["dev"]:
+    for subject in split[group]:
         e = load_wang2026sf_epochs([subject], phases=("pre",), template=CHANNELS)
         mi = np.flatnonzero(e.labels == "affected_mi")
         paired = mi[(mi > 0) & (e.labels[mi - 1] == "rest")]
