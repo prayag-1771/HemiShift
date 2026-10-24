@@ -36,6 +36,24 @@ only.
 
 ## Log
 
+### 2026-10-24 · RESULT B (confirmed): S3 patient pooling on the locked test
+
+`scripts/s3_locked_test.py`, run once on the 8 S3 locked-test patients (hash 0a28a2e83d), with
+the 16 dev patients as donors. Results in `results/summary/s3_locked_test.csv`.
+
+| Calibration | own TS + LR | pooled with dev patients | Difference | Helped / harmed | One-sided Wilcoxon |
+|---|---|---|---|---|---|
+| **k = 5 (primary)** | 77.1 % | **81.4 %** | **+4.3 points** | 7 / 1 | **p = 0.035** |
+| k = 10 (secondary) | 79.5 % | 81.6 % | +2.1 points | 5 / 1 | p = 0.14 |
+
+- **The pre-registered hypothesis is CONFIRMED.** With 5 calibration pairs, pooling other
+  patients' data in a re-centred Riemannian decoder beats the patient's own decoder on
+  never-seen patients. At or above chance: 7/8 → 8/8.
+- The gain matches dev (+2.3 there, +4.3 here) and shrinks with more calibration, where
+  borrowing matters less.
+- **The first locked-test-confirmed positive result of the project.** Calibration time can be
+  halved without losing accuracy: pooled at k = 5 (81.4 %) ≈ own at k = 10 (79.5 %).
+
 ### 2026-10-24 · PRE-REGISTRATION: two locked-test confirmations (S1 screening, S3 pooling)
 
 Written and committed **before** either analysis touches a locked-test patient.
