@@ -36,6 +36,39 @@ only.
 
 ## Log
 
+### 2026-10-24 · PRE-REGISTRATION: two locked-test confirmations (S1 screening, S3 pooling)
+
+Written and committed **before** either analysis touches a locked-test patient.
+
+**A. S1 screening (from step 3i)**
+- **Patients:** the 15 S1 locked-test patients (hash 4999799d11).
+  - They were used once before, for ens16 under blocked CV, and their blocked-CV accuracies
+    were seen.
+  - The procedure below was fixed on dev and has no free parameters, so that knowledge cannot
+    steer it.
+- **Procedure:** `scripts/s1_screening.py --locked-test`, otherwise unchanged.
+  - The first 20 trials calibrate; the rest test.
+  - base and ens16 are scored by leave-one-pair-out CV on the calibration trials.
+  - The SafeTransfer gate (Bonferroni over 2, ≥ 15/20) passes the patient or abstains.
+- **Primary hypothesis:** passed patients' test accuracy > abstained patients' (one-sided
+  Mann–Whitney, p < 0.05). If either group has fewer than 2 patients, the test is reported as
+  not evaluable.
+- **Secondary:** Spearman ρ between the best calibration score and test accuracy (one-sided,
+  ρ > 0).
+- **Multiplicity:** Holm over the two S1 locked-test hypotheses (ens16 had p = 0.083).
+
+**B. S3 patient pooling (from S3 step 3)**
+- **Patients:** the 8 S3 locked-test patients (hash 0a28a2e83d). This is their first use.
+- **Procedure:** `scripts/s3_locked_test.py`.
+  - The first k (rest, MI) pairs calibrate; the rest test.
+  - own TS + LR is compared with pooled TS + LR, using the 16 dev patients as donors.
+  - Each domain is re-centred on its own mean, and the donors together weigh as much as the
+    calibration. This is step 3's "+patients" code, unchanged.
+- **Primary hypothesis:** pooled > own at k = 5 (one-sided Wilcoxon, p < 0.05; with 8 patients
+  the smallest possible p is 0.004).
+- **Secondary:** the same at k = 10.
+- **Each analysis runs once.** Whatever the outcome, it is reported.
+
 ### 2026-10-21 · RESULT: S1 locked test, frozen ens16 pipeline (run once, as pre-registered)
 
 `scripts/s1_locked_test.py`, 15 locked-test patients (none excluded), blocked 4-fold CV.
