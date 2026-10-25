@@ -15,7 +15,12 @@ tqdm
 huggingface_hub  # pretrained EEG foundation models (CBraMod) via braindecode
 safetensors
 
-# Added in later phases: peft, captum (phase 4-5); onnx, onnxruntime, pylsl (phase 6).
+# Demo (phase 6): live LSL replay + browser dashboard
+pylsl
+fastapi
+uvicorn
+
+# Added in later phases: peft, captum (phase 4-5).
 
 # Testing
 pytest
