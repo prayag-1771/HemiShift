@@ -8,6 +8,8 @@ then tests them on hospitals they have never seen.
 - Plan, phases and gates: [PLAN.md](PLAN.md)
 - Prior work and novelty evidence: [LITERATURE.md](LITERATURE.md)
 - Every experiment, including the failures: [ACHIEVEMENTS.md](ACHIEVEMENTS.md)
+- Live demo, a never-seen patient streamed over LSL and decoded in the browser:
+  [demo/README.md](demo/README.md). Run `.venv/Scripts/python -I demo/server.py`.
 
 ## Results so far
 
