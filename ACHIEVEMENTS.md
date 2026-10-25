@@ -36,6 +36,23 @@ only.
 
 ## Log
 
+### 2026-10-25 · S1 step 5: patient pooling on Task A (dev only; the S1 locked test is used)
+
+`scripts/s1_pooling.py`, the same pooled decoder as S3 step 3, with the other 33 dev patients
+as donors. Protocol P3: the first k trials per class calibrate. Results in
+`results/summary/s1_pooling_dev.csv`.
+
+| k per class | own | pooled | Median diff, p | Helped / harmed |
+|---|---|---|---|---|
+| 5 (30 test trials) | 52.1 % | 54.4 % | +1.7, p 0.023 | 17 / 8 |
+| 10 (20 test trials) | 57.1 % | 58.1 % | +2.5, p 0.29 | 17 / 10 |
+
+- **Same pattern as S3:** pooling helps most when calibration is shortest, and the gain fades
+  with more trials.
+- On Task A the absolute level stays near chance at k = 5. Pooling rescues a few points, not a
+  usable decoder.
+- Dev-only, but consistent in direction with the S3 locked-test confirmation.
+
 ### 2026-10-24 · RESULT A (not evaluable): S1 screening on the locked test
 
 `scripts/s1_screening.py --locked-test`, run once on the 15 S1 locked-test patients. Results in
