@@ -36,6 +36,38 @@ only.
 
 ## Log
 
+### 2026-10-25 · S3 step 2: the SafeTransfer gate (H2), Tianjin Task B (dev)
+
+`scripts/s3_safetransfer.py`. Results in `results/summary/s3_safetransfer_dev.csv`.
+- **Candidates:** own (TS + LR), transfer (R3: healthy + LesionSim EEGNet, fine-tuned), and
+  their ensemble.
+- **Choice:** leave-one-pair-out CV on the calibration pairs only, then the gate (ties favour
+  own; abstain unless the best beats chance, Bonferroni over 3). An abstaining patient falls
+  back to own.
+
+| | k = 5 | k = 10 |
+|---|---|---|
+| always own | 81.7 % | 84.7 % |
+| always transfer | 76.4 % (**9/16 harmed** ≥ 2 pts) | 76.3 % (**11/16 harmed**) |
+| always ensemble | 81.8 % (4 harmed) | 83.1 % (7 harmed) |
+| **gate** | **80.6 % (2/16 harmed)** | **84.4 % (1/16 harmed)** |
+| gate choices | own 9, ensemble 2, transfer 1, abstain 4 | own 10, ensemble 5, transfer 1 |
+
+- **H2 is supported on dev, in both pre-registered parts:**
+  1. The gate lowers the negative-transfer rate compared with always transferring: 9 → 2 of
+     16 at k = 5 (exact McNemar one-sided p = 0.008; 7 vs 0 discordant) and 11 → 1 at k = 10
+     (p = 0.001).
+  2. It does not lower mean accuracy compared with always transferring; it raises it:
+     +4.2 points at k = 5 (bootstrap CI 0.0 to +8.6, p = 0.033) and +8.1 at k = 10 (CI +1.7
+     to +13.3, p = 0.001).
+- **Context:**
+  - The gate essentially learns, from calibration data alone, to avoid the harmful deep
+    transfer. It does not beat simply always using own (80.6 vs 81.7, 84.4 vs 84.7).
+  - Its value is safety when it is unknown whether a transfer model helps a given patient.
+  - At k = 5 it abstained for 4 patients; the other 12 reached 83.5 %.
+  - Calibration-CV and held-out accuracy correlate at ρ = 0.40 (k = 5) and 0.36 (k = 10),
+    both n.s.
+
 ### 2026-10-25 · S1 step 5: patient pooling on Task A (dev only; the S1 locked test is used)
 
 `scripts/s1_pooling.py`, the same pooled decoder as S3 step 3, with the other 33 dev patients
