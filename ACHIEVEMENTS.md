@@ -36,6 +36,32 @@ only.
 
 ## Log
 
+### 2026-10-25 · S3 step 4: LesionSim rung 2, learned operator settings (dev): fails
+
+`scripts/s3_theta_search.py`; Task B, k = 5, step 3's pooled decoder.
+- **Search:** 27 population-mode settings: α ∈ {1, 0.6, 0.2} × β ∈ {0, 0.4, 0.8} ×
+  spread ∈ {0, 0.5, 1}.
+- **Honest choice:** 4 folds over patients (choose on 12, score 4).
+- **Results** in `results/summary/s3_theta_search_dev.csv`:
+
+| Donors | Mean (k = 5) |
+|---|---|
+| none (own) | 81.7 % |
+| healthy, unmodified (identity; reproduces step 3 exactly) | 78.9 % |
+| LesionSim, best setting in hindsight (α 0.6, β 0, spread 0.5) | 80.0 % |
+| **LesionSim, nested choice** | **78.8 %** (vs identity: median −0.7, p 0.80; 7 helped / 8 harmed) |
+| real other patients (step 3) | 84.0 % |
+
+- **All 27 settings land within 78.9–80.0 %.**
+- **The honest choice closes −2 % of the 5.1-point healthy-to-patient donor gap**; even the
+  hindsight best closes only 21 %. The chosen setting differs in every fold, so there is no
+  stable "stroke setting" to learn.
+- **Verdict:** rung 2 fails. With rung 1 (hand-set, population and patient-matched) and the
+  deep-pretraining tests, LesionSim is now negative in six forms. What makes real stroke
+  donors useful is not captured by ERD attenuation, lateral shift or trial variability.
+- Rung 3 (a learned generative translation) is not pursued for now. Real patient data is
+  available and already helps, and no operator family moved the needle toward it.
+
 ### 2026-10-25 · S3 step 2: the SafeTransfer gate (H2), Tianjin Task B (dev)
 
 `scripts/s3_safetransfer.py`. Results in `results/summary/s3_safetransfer_dev.csv`.
