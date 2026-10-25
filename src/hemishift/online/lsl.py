@@ -47,6 +47,7 @@ class Replay(threading.Thread):
         self.data, self.ch_names, self.sfreq, self.events = data, ch_names, sfreq, events
         self.speed, self.name, self.chunk = speed, name, max(1, int(round(chunk_s * sfreq)))
         self.stop_flag = threading.Event()
+        self.finished = threading.Event()  # all data pushed; outlets stay open until stop_flag
 
     def run(self):
         from pylsl import StreamInfo, StreamOutlet, local_clock
@@ -75,6 +76,8 @@ class Replay(threading.Thread):
             eeg.push_chunk(np.ascontiguousarray(self.data[:, i:j].T, dtype=np.float32),
                            t0 + (j - 1) / self.sfreq)
             i = j
+        self.finished.set()
+        self.stop_flag.wait()  # closing the outlets now would look like a broken stream
 
 
 class StreamBuffer:

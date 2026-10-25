@@ -36,6 +36,32 @@ only.
 
 ## Log
 
+### 2026-10-25 · Phase 6: the live demo runs end to end
+
+`demo/` (see `demo/README.md`).
+- **What it does:** a locked-test patient's raw 64-channel EEG is replayed over LSL. The
+  receiver calibrates on 5 rest + imagery pairs, then decodes every later trial with the own
+  and the pooled decoder side by side. A FastAPI dashboard shows the stream, cue,
+  calibration, gate, live accuracy and history.
+- **Same method as evaluated:** the decoders live in `hemishift.models.pooling` and are
+  unit-tested to give identical outputs to the experiment code.
+- **Online pipeline = offline result.** Streaming all 8 locked-test patients through the
+  online steps (causal filter, cut at each cue, harmonise, session) gives:
+  - own 77.1 % (offline 77.1)
+  - pooled 82.5 % (offline 81.4)
+
+  Results are in `results/summary/demo_online_check.csv`.
+- **Real LSL path, headless (`demo/selftest.py`):** patient 22 gives 78.6 / 84.3 %, and patient
+  4 gives 90.0 / 97.1 %. Both are identical to the streaming check.
+- **Latency:**
+  - Processing is 12.6 ms per epoch on an idle machine (median) and 21–23 ms under full load
+    (worst 54 ms).
+  - Each decision is ready 4.0 s after its cue (the end of the imagery window) plus that
+    processing time.
+- **Server check:** page served; POST /start; 75 s of server-sent events captured: meta,
+  calibration ×5, the gate, 27 decisions and 18 running scores (own 77.8 %, pooled 88.9 % at
+  that point), plus about 17 EEG updates per second.
+
 ### 2026-10-25 · S3 step 5: EEG foundation model (CBraMod, frozen) on Task B (dev)
 
 `scripts/s3_foundation.py`.

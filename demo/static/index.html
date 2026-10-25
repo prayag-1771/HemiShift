@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HemiShift Live</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --line: #e3e6eb; --text: #1a1e24; --muted: #5d6673;
+    --own: #8c96a8; --pooled: #2563eb; --rest: #0f9f6e; --mi: #d97706; --other: #94a3b8;
+    --ok: #16a34a; --bad: #dc2626; --trace: #334155;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1116; --card: #161a21; --line: #262c36; --text: #e5e8ec; --muted: #9aa3af;
+      --own: #7c879a; --pooled: #60a5fa; --rest: #34d399; --mi: #fbbf24; --other: #64748b;
+      --ok: #4ade80; --bad: #f87171; --trace: #cbd5e1;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 18px 24px 8px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  h1 span { color: var(--pooled); }
+  .sub { color: var(--muted); font-size: 13.5px; flex: 1 1 360px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 9px 18px;
+           background: var(--pooled); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  main { display: grid; gap: 14px; padding: 8px 24px 24px;
+         grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .eeg { grid-column: span 2; }
+  #eeg { width: 100%; height: 260px; display: block; }
+  .cue { display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  #cue { font-size: 26px; font-weight: 700; margin: 6px 0; min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
+  #cueTrial { color: var(--muted); font-size: 13px; }
+  .big { display: flex; gap: 14px; }
+  .big > div { flex: 1; }
+  .num { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .lbl { font-size: 12.5px; color: var(--muted); }
+  .own .num { color: var(--own); } .pooled .num { color: var(--pooled); }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .bar > i { display: block; height: 100%; width: 0; transition: width .4s; }
+  .own .bar > i { background: var(--own); } .pooled .bar > i { background: var(--pooled); }
+  .prob { display: grid; grid-template-columns: 74px 1fr 46px; align-items: center; gap: 8px; margin: 8px 0; font-size: 13.5px; }
+  .track { position: relative; height: 14px; background: var(--line); border-radius: 7px; }
+  .track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; transition: width .3s; }
+  .track::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 2px dashed var(--muted); }
+  .mark { font-weight: 700; } .mark.ok { color: var(--ok); } .mark.bad { color: var(--bad); }
+  .steps { display: flex; gap: 6px; margin: 8px 0 10px; }
+  .steps i { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+  .steps i.done { background: var(--pooled); }
+  .gate { font-weight: 600; }
+  .history { grid-column: 1 / -1; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+  .row b { width: 120px; font-size: 13px; font-weight: 600; color: var(--muted); flex: none; }
+  .cells { display: flex; flex-wrap: wrap; gap: 3px; }
+  .cells i { width: 12px; height: 12px; border-radius: 3px; }
+  .cells i.ok { background: var(--ok); } .cells i.bad { background: var(--bad); }
+  .note { color: var(--muted); font-size: 12.5px; padding: 0 24px 24px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 8px 16px 16px; }
+    .eeg { grid-column: auto; } header, .note { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>HemiShift <span>Live</span></h1>
+  <div class="sub" id="sub">Connecting…</div>
+  <button id="start" disabled>Start session</button>
+</header>
+<main>
+  <section class="card eeg">
+    <h2>EEG stream · motor strip, 1–40 Hz, last 10 s</h2>
+    <canvas id="eeg"></canvas>
+  </section>
+  <section class="card cue">
+    <h2>Current cue</h2>
+    <div id="cue">Waiting</div>
+    <div id="cueTrial">Each trial: rest, then imagine moving the affected hand.</div>
+  </section>
+  <section class="card">
+    <h2>Live accuracy (scored trials)</h2>
+    <div class="big">
+      <div class="own"><div class="num" id="accOwn">–</div><div class="lbl">Patient's own decoder</div><div class="bar"><i id="barOwn"></i></div></div>
+      <div class="pooled"><div class="num" id="accPooled">–</div><div class="lbl">HemiShift pooled</div><div class="bar"><i id="barPooled"></i></div></div>
+    </div>
+    <div class="lbl" id="nScored" style="margin-top:10px">No trials scored yet</div>
+  </section>
+  <section class="card">
+    <h2>Last decision</h2>
+    <div class="lbl" id="lastInfo">After calibration, every rest and imagery epoch is decoded.</div>
+    <div class="prob"><span>Own</span><div class="track"><i id="pOwn" style="background:var(--own)"></i></div><span class="mark" id="mOwn"></span></div>
+    <div class="prob"><span>HemiShift</span><div class="track"><i id="pPooled" style="background:var(--pooled)"></i></div><span class="mark" id="mPooled"></span></div>
+    <div class="lbl">Bar = P(imagery); dashed line = decision threshold. <span id="latency"></span></div>
+  </section>
+  <section class="card">
+    <h2>Calibration and safety gate</h2>
+    <div class="lbl" id="calText">Calibration uses the first rest + imagery pairs.</div>
+    <div class="steps" id="steps"></div>
+    <div class="kv" id="gateBox"></div>
+  </section>
+  <section class="card history">
+    <h2>Trial history (green = correct, red = wrong)</h2>
+    <div class="row"><b>Own decoder</b><div class="cells" id="hOwn"></div></div>
+    <div class="row"><b>HemiShift pooled</b><div class="cells" id="hPooled"></div></div>
+  </section>
+</main>
+<div class="note" id="note"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const COLORS = () => getComputedStyle(document.documentElement);
+const WINDOW_S = 10, RATE = 50;
+let st;
+
+function reset() {
+  st = { meta: null, display: [], traces: [], tLast: null, cues: [], decisions: {}, k: 5, pairs: 0 };
+  ["hOwn", "hPooled", "gateBox"].forEach((id) => $(id).innerHTML = "");
+}
+reset();
+
+const LABELS = { rest: "REST", affected_mi: "IMAGINE MOVING THE AFFECTED HAND", sixth_finger_mi: "Sixth-finger trial (not decoded)" };
+const CUE_COLOR = { rest: "--rest", affected_mi: "--mi", sixth_finger_mi: "--other" };
+
+function onMeta(m) {
+  reset();
+  st.meta = m; st.k = m.k;
+  const side = m.affected_side === "L" ? "left" : "right";
+  $("sub").textContent = `Patient ${m.patient} (Tianjin, chronic stroke, ${side} hemiplegia) · never seen during development ` +
+    `· ${m.channels}-channel EEG at ${m.sfreq} Hz streamed over LSL · replay ×${m.speed}`;
+  $("steps").innerHTML = Array.from({ length: m.k }, () => "<i></i>").join("");
+  $("calText").textContent = `Calibration: the first ${m.k} rest + imagery pairs (about ${Math.round(m.k * 15 / 60)} min).`;
+  const off = m.offline ? ` Offline locked-test result for this patient: own ${m.offline.own.toFixed(1)} %, pooled ${m.offline.pooled.toFixed(1)} %.` : "";
+  $("note").textContent = `HemiShift pools ${m.donor_epochs} epochs from ${m.donor_patients} other stroke patients into a re-centred ` +
+    `Riemannian decoder; across the 8 locked-test patients this beat the patient's own decoder at 5 calibration pairs ` +
+    `(81.4 vs 77.1 %, p = 0.035, pre-registered).${off}`;
+  $("start").disabled = false;
+}
+
+function onEeg(e) {
+  const v = e.values;  // channels x samples
+  if (!st.traces.length) st.traces = v.map(() => []);
+  v.forEach((ch, i) => { st.traces[i].push(...ch); if (st.traces[i].length > WINDOW_S * RATE) st.traces[i].splice(0, st.traces[i].length - WINDOW_S * RATE); });
+  st.tLast = e.t;
+}
+
+function draw() {
+  const c = $("eeg"), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const css = COLORS(), n = st.traces.length || 7, lane = h / n, left = 44;
+  g.font = "12px system-ui"; g.textBaseline = "middle";
+  if (st.tLast !== null) {
+    for (const cue of st.cues) {
+      const x = w - (st.tLast - cue.t) / WINDOW_S * (w - left);
+      if (x < left) continue;
+      g.strokeStyle = css.getPropertyValue(CUE_COLOR[cue.label]).trim(); g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+      g.fillStyle = g.strokeStyle; g.fillText(cue.label === "rest" ? "rest" : cue.label === "affected_mi" ? "imagine" : "6th", x + 4, 9);
+    }
+  }
+  const names = (st.meta && st.display.length) ? st.display : ["FC3", "C3", "CP3", "Cz", "FC4", "C4", "CP4"];
+  st.traces.forEach((tr, i) => {
+    const y0 = lane * (i + 0.5);
+    g.fillStyle = css.getPropertyValue("--muted").trim(); g.fillText(names[i] || "", 4, y0);
+    if (tr.length < 2) return;
+    const sorted = tr.map(Math.abs).sort((a, b) => a - b), scale = Math.max(sorted[Math.floor(sorted.length * 0.95)], 1e-6);
+    g.strokeStyle = css.getPropertyValue("--trace").trim(); g.lineWidth = 1; g.beginPath();
+    const dx = (w - left) / (WINDOW_S * RATE), x0 = w - tr.length * dx;
+    tr.forEach((v, j) => { const x = x0 + j * dx, y = y0 - (v / scale) * lane * 0.42; j ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke();
+  });
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+function setProb(id, mark, p, ok) {
+  $(id).style.width = (100 * p).toFixed(1) + "%";
+  $(mark).textContent = ok ? "✓" : "✗"; $(mark).className = "mark " + (ok ? "ok" : "bad");
+}
+
+function onEvent(e) {
+  switch (e.type) {
+    case "meta": onMeta(e); break;
+    case "started": $("start").disabled = true; $("start").textContent = "Running"; break;
+    case "stream": st.display = e.display; break;
+    case "eeg": onEeg(e); break;
+    case "cue":
+      st.cues.push(e); if (st.cues.length > 40) st.cues.shift();
+      $("cue").textContent = LABELS[e.label] || e.label;
+      $("cue").style.color = `var(${CUE_COLOR[e.label] || "--text"})`;
+      $("cueTrial").textContent = `Trial ${e.trial}`;
+      break;
+    case "calibration":
+      st.pairs = e.pairs;
+      [...$("steps").children].forEach((el, i) => el.classList.toggle("done", i < e.pairs));
+      $("calText").textContent = `Calibrating: ${e.pairs} of ${e.k} rest + imagery pairs collected.`;
+      break;
+    case "calibrated": {
+      const n = e.n_cal, gate = e.gate === "abstain" ? "not enough evidence yet (keep calibrating)" : `use ${e.gate === "pooled" ? "HemiShift pooled" : "own decoder"}`;
+      $("calText").textContent = `Calibrated on ${n} epochs in ${Math.round(e.k)} pairs. Decoding every trial from now on.`;
+      $("gateBox").innerHTML = `<span>Own, calibration CV</span><span>${e.cv_correct.own}/${n}</span>` +
+        `<span>Pooled, calibration CV</span><span>${e.cv_correct.pooled}/${n}</span>` +
+        `<span>Safety gate</span><span class="gate">${gate}</span>`;
+      break;
+    }
+    case "decision": {
+      st.decisions[e.trial] = e;
+      $("lastInfo").textContent = `Trial ${e.trial}: true class ${e.label === "rest" ? "rest" : "imagery"}`;
+      setProb("pOwn", "mOwn", e.p_mi.own, e.correct.own);
+      setProb("pPooled", "mPooled", e.p_mi.pooled, e.correct.pooled);
+      if (e.latency_ms !== undefined) $("latency").textContent = `Processing: ${e.latency_ms} ms.`;
+      break;
+    }
+    case "score": {
+      const d = st.decisions[e.trial];
+      if (d) {
+        for (const [name, id] of [["own", "hOwn"], ["pooled", "hPooled"]]) {
+          const cell = document.createElement("i"); cell.className = d.correct[name] ? "ok" : "bad";
+          cell.title = `trial ${d.trial}, ${d.label}`; $(id).appendChild(cell);
+        }
+      }
+      $("accOwn").textContent = e.accuracy.own.toFixed(1) + " %"; $("accPooled").textContent = e.accuracy.pooled.toFixed(1) + " %";
+      $("barOwn").style.width = e.accuracy.own + "%"; $("barPooled").style.width = e.accuracy.pooled + "%";
+      $("nScored").textContent = `${e.n} epochs scored (rest and imagery epochs of each pair).`;
+      break;
+    }
+  }
+}
+
+const source = new EventSource("/events");
+source.onmessage = (msg) => onEvent(JSON.parse(msg.data));
+source.onerror = () => { $("sub").textContent = "Connection lost, retrying…"; };
+$("start").onclick = async () => { $("start").disabled = true; await fetch("/start", { method: "POST" }); };
+</script>
+</body>
+</html>
