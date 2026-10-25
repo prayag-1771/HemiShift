@@ -13,10 +13,12 @@ online system can calibrate once and then decode trial by trial.
 """
 
 import numpy as np
+from pyriemann.tangentspace import TangentSpace
 from pyriemann.utils.base import invsqrtm
 from pyriemann.utils.mean import mean_riemann
 from pyriemann.utils.tangentspace import tangent_space
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
 
 
 def recentre_by_domain(C, domains):
@@ -27,6 +29,21 @@ def recentre_by_domain(C, domains):
         W = invsqrtm(mean_riemann(C[rows]))
         out[rows] = W @ C[rows] @ W
     return out
+
+
+class OwnTSLR:
+    """The patient's own decoder: calibration-mean re-centring, tangent space, LR (as in the
+    experiments' `own_proba`)."""
+
+    def fit(self, C_cal, y_cal):
+        self.W_ = invsqrtm(mean_riemann(C_cal))
+        self.model_ = make_pipeline(TangentSpace(metric="riemann"),
+                                    LogisticRegression(C=1.0, max_iter=1000))
+        self.model_.fit(self.W_ @ C_cal @ self.W_, y_cal)
+        return self
+
+    def predict_proba(self, C):
+        return self.model_.predict_proba(self.W_ @ np.asarray(C) @ self.W_)[:, 1]
 
 
 class PooledTSLR:

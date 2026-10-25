@@ -36,6 +36,23 @@ only.
 
 ## Log
 
+### 2026-10-25 · S3 step 5: EEG foundation model (CBraMod, frozen) on Task B (dev)
+
+`scripts/s3_foundation.py`.
+- **Setup:** CBraMod embeddings (0.5–3.5 s, three 1 s patches) and shrinkage LDA on the
+  calibration epochs. Protocol P3. Results in `results/summary/s3_foundation_dev.csv`.
+
+| Features | k = 5 | k = 10 |
+|---|---|---|
+| own TS + LR | 81.7 % | 84.7 % |
+| fm-mean (200) | 68.0 % (13 harmed, Holm p 0.004) | 68.2 % (15 harmed, p 0.001) |
+| fm-chan (14 × 200) | 58.2 % (15 harmed, p 0.002) | 62.5 % (15 harmed, p 0.001) |
+
+- **C4 arm answered on both cohorts:** frozen foundation-model features trail the per-patient
+  Riemannian decoder by 14–24 points here, and by about 5 points on S1. With 10–20
+  calibration epochs, a linear probe on 200–2800 generic features cannot match 105
+  covariance-based features built for exactly this signal.
+
 ### 2026-10-25 · S3 step 4: LesionSim rung 2, learned operator settings (dev): fails
 
 `scripts/s3_theta_search.py`; Task B, k = 5, step 3's pooled decoder.

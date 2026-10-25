@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hemishift.models.pooling import PooledTSLR, recentre_by_domain
+from hemishift.models.pooling import OwnTSLR, PooledTSLR, recentre_by_domain
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,6 +40,18 @@ def test_pooled_decoder_matches_the_confirmed_experiment_code():
     expected = augment.pooled_proba(C[:10], y[:10], C[10:], donor_C, donor_y)
     got = PooledTSLR(donor_C, donor_y).fit(C[:10], y[:10]).predict_proba(C[10:])
     np.testing.assert_allclose(got, expected, rtol=1e-6, atol=1e-9)
+
+
+def test_own_decoder_matches_the_experiment_code():
+    spec = importlib.util.spec_from_file_location("premise_check", ROOT / "scripts" / "premise_check.py")
+    premise = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(premise)
+    C, y, _, _ = _data()
+    cal, test = np.arange(10), np.arange(10, 40)
+    A = premise.recenter(C, cal)
+    expected = premise.model().fit(A[cal], y[cal]).predict_proba(A[test])[:, 1]
+    np.testing.assert_allclose(OwnTSLR().fit(C[cal], y[cal]).predict_proba(C[test]), expected,
+                               rtol=1e-6, atol=1e-9)
 
 
 def test_pooled_decoder_separates_the_classes():
