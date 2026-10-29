@@ -1,0 +1,131 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\newcommand{\pct}{\,\%}
+
+\title{Borrowing from other patients, not from healthy brains: a pre-registered evaluation of calibration transfer for motor-imagery brain--computer interfaces after stroke}
+\author{Author names and affiliations to be added}
+\date{Draft, \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent\textbf{Objective.} Motor-imagery brain--computer interfaces (BCIs) for stroke rehabilitation must be calibrated on each patient, and the few trials a patient can give leave decoders unreliable. Borrowing data from healthy participants is the usual remedy. We tested which source of borrowed data shortens calibration after stroke: healthy recordings, a physiology-based simulation of stroke EEG, an EEG foundation model, or other patients' recordings.
+\textbf{Approach.} We harmonised two public stroke cohorts, 50 acute patients imagining left- versus right-hand movement and 24 chronic patients imagining moving the affected hand versus resting, together with 109 healthy participants. Each cohort kept a locked test set of patients never used during method development. Hypotheses were pre-registered in a version-controlled log, and every confirmatory analysis was run once. Per-patient Riemannian decoders were compared with deep transfer (EEGNet), a frozen foundation model (CBraMod), LesionSim (a simulator that edits healthy EEG to mimic weaker, shifted and more variable lesioned-side activity, including automatically learned settings), and pooling other patients' data into a re-centred Riemannian decoder.
+\textbf{Main results.} With five calibration pairs, pooling other patients' data raised accuracy on the locked test patients from 77.1\pct{} to 81.4\pct{} (one-sided $p = 0.035$), the level the patient's own decoder reached only with ten pairs. Healthy data did not help in any form: deep transfer trailed the per-patient decoder by 4.5--12 points, the foundation-model probe by 14--24 points, and LesionSim closed none of the gap between healthy and real-patient donors. A calibration-only safety gate cut the number of patients harmed by transfer from 9 to 2 of 16. Left- versus right-hand imagery in acute stroke stayed near chance for most patients; a window ensemble gained 3.6--4.1 points without reaching significance on the locked test.
+\textbf{Significance.} For few-trial stroke BCIs, pooling real patients beats simulating them. Code to rebuild the benchmark, a real-time implementation and the full pre-registration trail are released.
+\end{abstract}
+
+\section{Introduction}
+
+Brain--computer interfaces that turn motor imagery into feedback can improve upper-limb recovery after stroke. A meta-analysis of controlled trials found a clinically relevant benefit of BCI-based therapy over control interventions \citep{cervera2018}, and controlled studies have reported lasting gains when imagery-driven feedback was coupled to orthoses or functional electrical stimulation \citep{ramosmurguialday2013,biasiucci2018}. Such therapy depends on a decoder that reliably detects the patient's attempt to move. Motor-imagery decoders are trained per user, and even healthy users vary widely: in a 54-participant study the mean accuracy was 71.1\pct{}, and over half of the participants stayed below 70\pct{} \citep{lee2019}. Stroke patients can reach similar levels when a decoder is trained on their own data \citep{ang2011}. However, each calibration trial costs effort that patients early after stroke can rarely give, and the information the decoder needs may sit in the contralesional rather than the ipsilesional hemisphere \citep{mansour2022}.
+
+The usual remedy is to borrow data. Deep networks pretrained on healthy participants and fine-tuned on a patient detected motor imagery against rest in 71 stroke patients at 71.15\pct{} \citep{nagarajan2024}. Applied to the public cohort of 50 acute patients we also study \citep{liu2024}, healthy-to-stroke transfer moved first-session accuracy only from 49.46\pct{} to 51.82\pct{}, with 21 of the 50 patients harmed \citep{via2026}. EEG foundation models adapted to stroke data were near chance zero-shot \citep{nguyen2026}. Generative augmentation has been used to synthesise a patient's motor-imagery features from that patient's own resting EEG \citep{xu2026}. What has not been tested is which \emph{source} of borrowed data helps a new stroke patient most when calibration is short: healthy recordings, simulated stroke recordings, generic pretrained representations, or other patients.
+
+Small-sample EEG studies are also prone to optimistic evaluation. Splitting segments of one participant across training and test sets inflates accuracy \citep{brookshire2024}, cross-validation on a few dozen trials has wide error bars \citep{varoquaux2018}, and theoretical chance levels are too lenient for small test sets \citep{combrisson2015}. We therefore built the evaluation before the methods: patient-level locked test sets, chronological calibration, blocked cross-validation, and pre-registered confirmatory hypotheses that were committed to a version-controlled log before the locked patients were loaded.
+
+This study makes the following contributions.
+\begin{enumerate}
+  \item A leakage-safe benchmark of two public stroke cohorts and one healthy cohort, harmonised to a common montage and lesion side, with locked test sets and a timestamped pre-registration trail (Section~\ref{sec:design}).
+  \item A head-to-head comparison of four sources of borrowed data for few-trial calibration: healthy recordings (deep transfer and Riemannian pooling), a physiology-based stroke simulator (LesionSim) in six variants, a frozen EEG foundation model, and other patients' recordings (Sections~\ref{sec:s3}--\ref{sec:lesionsim}).
+  \item A confirmed result: pooling other patients into a re-centred Riemannian decoder halves the calibration needed for affected-hand imagery versus rest (Section~\ref{sec:s3}).
+  \item SafeTransfer, a calibration-only gate that chooses between a patient's own decoder and a transferred one, or abstains (Section~\ref{sec:gate}).
+  \item Quantified evaluation pitfalls on these data, including a numerical failure of Euclidean alignment that produced a spurious negative-transfer finding (Section~\ref{sec:pitfalls}).
+  \item A real-time implementation over the Lab Streaming Layer, verified to reproduce the offline results (Section~\ref{sec:online}).
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Cohorts}
+
+Table~\ref{tab:cohorts} lists the cohorts. \textbf{S1} \citep{liu2024} contains 50 acute stroke patients (1--30 days after onset) who imagined left- or right-hand grasping in 40 alternating trials (2\,s instruction, 4\,s imagery, 2\,s break), recorded with 29 EEG and 2 EOG channels at 500\,Hz. \textbf{S3} \citep{wang2026} contains 24 chronic stroke patients (3--14 months) recorded with 59 EEG channels at 250\,Hz at three time points; each run interleaves rest, affected-hand imagery and imagery of a supernumerary sixth finger. Task~B pairs every affected-hand imagery epoch with the rest epoch immediately before it, giving 40 pairs per patient at the first time point. \textbf{H1}, the PhysioNet motor movement/imagery database \citep{schalk2004,goldberger2000}, provides 109 healthy participants. A fourth cohort, HEFMI-ICH \citep{shi2025}, was screened but excluded from decoding: its channel order and labels were verified against the stored metadata and eyes-closed alpha topography, yet the motor-band power of its healthy controls varied by only about 3\pct{} across the whole trial, too little imagery-related desynchronisation to decode.
+
+\begin{table}[t]
+\centering
+\caption{Cohorts. Development (dev) patients were used to build and compare methods; locked test patients were held out and used once per pre-registered hypothesis.}
+\label{tab:cohorts}
+\small
+\begin{tabularx}{\linewidth}{@{}l l X r r@{}}
+\toprule
+ & Cohort & Task used here & Dev & Locked test \\
+\midrule
+S1 & Liu et al.\ 2024 \citep{liu2024}, acute stroke, Beijing & Task A: left vs right hand imagery & 34$^a$ & 15 \\
+S3 & Wang et al.\ 2026 \citep{wang2026}, chronic stroke, Tianjin & Task B: affected-hand imagery vs rest & 16 & 8 \\
+H1 & PhysioNet EEGMMI \citep{schalk2004,goldberger2000}, healthy & left/right hand imagery and rest & \multicolumn{2}{c}{109 (donors only)} \\
+\bottomrule
+\end{tabularx}
+
+\raggedright\footnotesize $^a$Of 35; one patient failed a label-free quality rule (median correlation between neighbouring channels below 0.3, observed 0.08) and was excluded before any decoding.
+\end{table}
+
+\subsection{Harmonisation}
+
+All recordings were band-pass filtered at 1--40\,Hz, cut 0.5--4.0\,s after the imagery cue (or the rest cue), resampled to 128\,Hz (448 samples), and reduced to a 14-channel motor template (F3, Fz, F4, FC3, FCz, FC4, C3, Cz, C4, CP3, CP4, P3, Pz, P4) re-referenced to its common average. Patients with left hemiplegia were mirrored across the midline so that every lesion lies in the left hemisphere; in S1 the hand labels were swapped accordingly, so ``right hand'' always denotes the affected hand. Healthy participants were assigned a virtual left-hemisphere lesion. Pipelines for harmonising motor-imagery datasets exist for healthy cohorts \citep{liu2025cleanmi}; lesion-side normalisation extends harmonisation to stroke. Data were loaded with MNE-Python \citep{gramfort2013} and MOABB \citep{jayaram2018}; the original S1 clinical table was used because a widely mirrored copy lacks the clinical columns.
+
+\subsection{Evaluation design}
+\label{sec:design}
+
+\paragraph{Locked test sets.} Before any method was tuned on a cohort, a stratified random subset of its patients was locked away (S1: 15 of 50, stratified by paralysed side and NIHSS above the median; S3: 8 of 24, stratified by paralysed side and time since stroke above the median). Locked patients were loaded only to test a hypothesis that had been written down and committed beforehand (Table~\ref{tab:prereg}).
+
+\paragraph{Protocols.} Two within-patient protocols were used. \emph{Blocked cross-validation} (S1 development) splits a patient's 40 trials into four contiguous blocks of ten and tests each block with a model trained on the other three, so that slow drifts cannot leak between training and test trials. \emph{Chronological calibration} (S1 screening, all of S3) calibrates on the first $k$ trials (or rest--imagery pairs) of each class in recording order and tests on all later trials, as a clinical session would. Every reference statistic, filter, re-centring matrix and model was fitted on training or calibration trials only.
+
+\paragraph{Statistics.} Comparisons are paired across patients: Wilcoxon signed-rank tests on per-patient accuracy (zero differences dropped), Holm correction within each family of comparisons \citep{holm1979}, and bootstrap 95\pct{} confidence intervals of the mean. A patient counts as harmed when a method scores at least 2 points below the patient's own decoder. Per-patient significance uses the exact one-sided binomial test \citep{combrisson2015}; with 39 test trials an accuracy of at least 66.7\pct{} is required.
+
+\paragraph{Pre-registration.} Hypotheses, the frozen pipeline and the test statistic were committed to the project's results log before the locked patients were loaded; the commit timestamps are listed in Table~\ref{tab:prereg}. Each confirmatory analysis was run once, and its outcome was reported whatever it was.
+
+\subsection{Decoders}
+
+\paragraph{Own decoder.} Per patient, trials were band-pass filtered at 8--30\,Hz, and spatial covariance matrices were estimated with oracle approximating shrinkage \citep{chen2010}, re-centred on the Riemannian mean of the training trials \citep{zanini2018}, mapped to the tangent space \citep{barachant2012} and classified by L2-regularised logistic regression ($C = 1$). Implementations used pyRiemann \citep{pyriemann}.
+
+\paragraph{Window ensemble (ens16).} Sixteen own decoders, one per combination of four windows (0.5--4, 0.5--2.5 and 2--4\,s after the imagery cue, and 4--6\,s, the post-imagery period) and four bands (mu 8--13\,Hz, beta 13--30\,Hz, 8--30\,Hz, and a filter bank of all three), each fitted on the training trials; their predicted probabilities were averaged.
+
+\paragraph{Pooled decoder.} Calibration epochs of the target patient were pooled with donor epochs. Each domain---every donor, and the target's calibration set---was re-centred on its own Riemannian mean, which places all of them at the identity \citep{zanini2018}; tangent vectors were then taken at the identity and one logistic regression was fitted on all of them. All donor epochs together received the same total weight as the calibration epochs. Donors were the other development patients, healthy participants, or simulated stroke data.
+
+\paragraph{Deep transfer.} EEGNet \citep{lawhern2018} was trained with Euclidean alignment \citep{he2020}, random 2\,s crops and AdamW, pretrained for 60 epochs on donor data and fine-tuned for 40 epochs on the target's calibration data (implementation from braindecode \citep{schirrmeister2017}). Euclidean alignment requires the inverse square root of the mean covariance. Common-average-referenced data have a null direction, so directions with variance below $10^{-6}$ of the largest were dropped rather than inverted (Section~\ref{sec:pitfalls}).
+
+\paragraph{Foundation model.} CBraMod \citep{wang2025cbramod}, pretrained on a large clinical EEG corpus, was used frozen. Epochs were resampled to 200\,Hz and scaled to units of 100\,\textmu V as the model expects; embeddings of 1\,s patches were averaged and classified by shrinkage linear discriminant analysis trained on the calibration epochs.
+
+\subsection{LesionSim}
+\label{sec:lesionsim-method}
+
+LesionSim transforms healthy imagery epochs into stroke-like epochs by editing band envelopes while keeping phase. A band component $b(t)$ of a channel is split by the Hilbert transform into amplitude $A(t)$ and phase $\varphi(t)$, the amplitude is edited, and $b'(t) = A'(t)\cos\varphi(t)$ replaces $b(t)$. With the edit switched off, the input is reproduced exactly; unit tests enforce this identity. The rest amplitude $A_0$ of each channel is taken from the participant's own rest epochs. Three operators were implemented. The choice followed a preliminary comparison of S1 with H1 on development data, which found greater trial-to-trial variability of beta-band activity at C3 in stroke (Holm-corrected $p = 0.005$) and a trend toward reduced laterality. It also followed reports of more variable, more diffuse modulation in stroke EEG \citep{via2026} and of activity moving to the contralesional hemisphere with severity \citep{mansour2022}:
+\begin{itemize}
+  \item \emph{O1, weaker lesioned-side desynchronisation:} $A' = A_0 + \alpha\,(A - A_0)$ on ipsilesional channels in the mu band ($\alpha = 1$: unchanged).
+  \item \emph{O2, contralesional shift:} a share $\beta$ of each ipsilesional channel's relative desynchronisation is added to its mirror channel.
+  \item \emph{O4b, variability:} each trial's ipsilesional desynchronisation is scaled by a log-normal gain with log-standard-deviation $s$, in the mu and beta bands.
+\end{itemize}
+After editing, epochs were re-referenced to the common average, like real data. LesionSim was evaluated in three modes. In \emph{population mode}, settings were drawn per participant ($\alpha \sim U(0.6, 1)$, $\beta \sim U(0.2, 0.8)$, $s = 0.5$). In \emph{patient-matched mode}, $\alpha$ and $\beta$ were estimated from the target patient's calibration epochs as the ratio of the patient's to the healthy mean relative mu desynchronisation on FC3/C3/CP3, and its excess on FC4/C4/CP4. In \emph{learned mode}, 27 settings ($\alpha \in \{1, 0.6, 0.2\}$, $\beta \in \{0, 0.4, 0.8\}$, $s \in \{0, 0.5, 1\}$) were scored, and one was chosen honestly with four folds over patients (chosen on 12, scored on 4).
+
+\subsection{SafeTransfer gate}
+
+For each patient, every candidate decoder (own first, then transfer and their average) was scored by leave-one-pair-out cross-validation on the calibration pairs only. The gate selects the best candidate, with ties going to the patient's own decoder, but only if its calibration accuracy beats chance by the exact binomial test at $\alpha = 0.05$, Bonferroni-corrected over the candidates. Otherwise it abstains, and the system reports that more calibration is needed instead of giving possibly misleading feedback.
+
+\subsection{Neurophysiological analyses}
+
+For S3 (all 24 patients; descriptive, with fixed methods) and the healthy cohort, the relative desynchronisation (ERD) of each channel was computed as $(\bar A_{\mathrm{MI}} - \bar A_{\mathrm{rest}}) / \bar A_{\mathrm{rest}}$ from Hilbert envelopes in the mu and beta bands. To explain why some donors help, each patient's imagery-versus-rest direction in the re-centred tangent space (the difference of class means, unit length) was compared by cosine similarity with the pooled direction of the healthy donors and with that of the other patients. Its split-half reliability (odd versus even pairs) gives the ceiling. Finally, the own decoder's blocked cross-validation accuracy was compared across the three S3 time points.
+
+\subsection{Online implementation}
+\label{sec:online-method}
+
+The decoders were packaged for streaming use. A replay process publishes a recording's raw 64-channel EEG and cue markers as Lab Streaming Layer streams \citep{kothe2025}, paced in real time, as an amplifier and a stimulus program would. A receiver applies a causal 1--40\,Hz filter, cuts each trial's window as soon as it has arrived, harmonises it, calibrates on the first five rest--imagery pairs and then decodes every later epoch with the own and the pooled decoder. The decoders are the same code as in the offline evaluation; unit tests check that they give identical outputs.
+
+%% RESULTS
+\input{results.tex}
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+
+\end{document}

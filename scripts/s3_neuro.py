@@ -122,7 +122,8 @@ def main():
         li_h = (h["C4"] - h["C3"]) / (h["C4"].abs() + h["C3"].abs())
         li_p = (p["C4"] - p["C3"]) / (p["C4"].abs() + p["C3"].abs())
         print(f"     laterality (C4 - C3) / (|C4| + |C3|): healthy {li_h.median():+.2f}, stroke {li_p.median():+.2f} "
-              f"(Mann-Whitney p {stats.mannwhitneyu(li_h, li_p).pvalue:.3f}; negative = stronger ERD at C3)")
+              f"(Mann-Whitney p {stats.mannwhitneyu(li_h, li_p).pvalue:.3f}; ERD is negative, so positive = "
+              f"stronger ERD at C3, the lesioned / contralateral side)")
     spread = pd.DataFrame(spread)
     for band_name in ("mu", "beta"):
         t = spread[spread.band == band_name]

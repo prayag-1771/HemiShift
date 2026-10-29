@@ -1,0 +1,149 @@
+\section{Results}
+
+\begin{table}[t]
+\centering
+\caption{Pre-registered confirmatory analyses on locked test patients. Each was committed to the version-controlled results log (commit shown) before the locked patients were loaded, and run once.}
+\label{tab:prereg}
+\small
+\begin{tabularx}{\linewidth}{@{}p{3.6cm} l X l@{}}
+\toprule
+Hypothesis (committed) & Patients & Result & Verdict \\
+\midrule
+S3: pooling other patients beats the own decoder at $k = 5$ pairs (\texttt{d916f30}, 24 Oct 2026) & 8 & 77.1\pct{} $\rightarrow$ 81.4\pct{} (+4.3 points); 7 helped, 1 harmed; one-sided Wilcoxon $p = 0.035$. Secondary, $k = 10$: +2.1 points, $p = 0.14$ & \textbf{confirmed} \\
+\addlinespace
+S1: the window ensemble beats the base decoder (\texttt{e1556cc}, 21 Oct 2026) & 15 & 54.4\pct{} $\rightarrow$ 58.0\pct{} (+3.6 points); 7 helped, 3 harmed, 5 tied; one-sided $p = 0.083$ & not confirmed \\
+\addlinespace
+S1: patients passed by a 20-trial calibration screen decode later trials better than those it abstains on (\texttt{d916f30}) & 15 & 1 patient passed (78.9\pct{}) vs 14 abstained (53.9\pct{}); pre-specified as not evaluable with fewer than 2 per group. Secondary: Spearman $\rho = 0.37$, one-sided $p = 0.088$ & not evaluable \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The published S1 baselines are not reproducible, and the S1 signal is weak}
+\label{sec:pitfalls}
+
+Porting the authors' released analysis code to the authors' raw data gave 50.56\pct{} (CSP with linear discriminant analysis; 95\pct{} CI 47.8--53.4) and 49.29\pct{} (filter-bank CSP with a support vector machine; 46.9--51.7). The published values are 55.57\pct{} and 57.57\pct{} \citep{liu2024}. The cleaned recordings gave the same (51.86\pct{} and 49.17\pct{}), which agrees with the 49.46--51.82\pct{} reported by others on this cohort \citep{via2026}. A label-free audit of the 34 development patients explains part of the difficulty:
+\begin{itemize}
+  \item Every patient had 1--9 technically faulty channels, and 27 had at least one faulty motor channel.
+  \item A rhythm peak above the aperiodic background was present in only 20 patients.
+  \item The classic lateralised power difference between C3 and C4 was significant in only 2 (mu) and 4 (beta) patients, against 1.7 expected by chance.
+\end{itemize}
+
+Three further pitfalls inflated results during development and are reported so that others can avoid them.
+\begin{itemize}
+  \item \textbf{Per-patient tuning without nesting.} Choosing each patient's best window and band in hindsight gave 72.7\pct{}; the same choice made honestly by nested cross-validation gave 59.2\pct{}, against 57.4\pct{} for a fixed choice (Figure~\ref{fig:beijing}a). The 13.5-point gap is selection luck on 40 trials \citep{varoquaux2018}.
+  \item \textbf{Transductive drift correction.} Re-centring each block of test trials on its own mean improved accuracy by 5.1 points ($p = 0.02$), but the gain vanished when only past trials could be used, as in a real session. It came from looking ahead.
+  \item \textbf{Euclidean alignment on common-average data.} A plain inverse square root amplified the null direction of common-average data about $10^6$-fold. This injected noise into every aligned input and pushed edited copies to values near $10^7$. Before the fix, healthy-pretrained EEGNet appeared to harm 22 of 34 patients significantly ($p = 0.034$). After dropping null directions, held-out healthy accuracy rose from 63.0\pct{} to 67.7\pct{}, and the apparent negative transfer disappeared (15 helped, 16 harmed, $p = 0.26$).
+\end{itemize}
+
+\subsection{Left- versus right-hand imagery in acute stroke (S1)}
+
+Within patients (blocked cross-validation, 34 development patients), the own decoder reached 57.7\pct{}, with 8 patients at or above the 65\pct{} chance threshold. None of the following beat it:
+\begin{itemize}
+  \item EEGNet from scratch (57.4\pct{}) or pretrained on healthy data and fine-tuned (55.7\pct{});
+  \item the frozen foundation-model probe (52.1--52.9\pct{});
+  \item slow cortical potentials (57.2\pct{});
+  \item phase-lagged coherence (46.7--52.4\pct{});
+  \item individually tuned frequency bands (53.4\pct{});
+  \item eleven variants of the classical decoder (regularisation, discriminant analysis, minimum distance to mean, CSP, channel subsets, time crops, outlier removal).
+\end{itemize}
+LesionSim did not improve healthy pretraining either (54.5--56.2\pct{} for single operators and their combination, against 56.5\pct{} for healthy data alone). Strikingly, pretraining on the other development patients' real recordings gave no gain either (56.0\pct{}).
+
+The window ensemble was the only decoder that improved significantly on the own decoder during development (uncorrected): 61.5\pct{} versus 57.4\pct{} on the same 39 trials. It helped 20 patients and harmed 9, raised the number of patients above chance from 8 to 13, and gave $p = 0.011$ (Holm-corrected over 11 variants: 0.12). The gain needed the post-imagery window: without it the ensemble scored 58.2\pct{}. On the 15 locked test patients the ensemble improved by a similar amount (+3.6 points), but the pre-registered one-sided test gave $p = 0.083$ (Table~\ref{tab:prereg}, Figure~\ref{fig:beijing}b).
+
+Who can use a left/right BCI could be predicted from calibration data, but not from clinical scores. Under chronological calibration on the first 20 trials, the gate passed 8 of 34 development patients. These scored 72.6\pct{} on their later trials, against 51.8\pct{} for the 26 it abstained on ($p < 0.001$). Calibration and later accuracy correlated ($\rho = 0.48$, $p = 0.004$), while later accuracy was unrelated to stroke severity (NIHSS, $\rho = -0.05$) or time since stroke ($\rho = -0.13$). On the locked test patients the gate passed only one patient (78.9\pct{} on later trials), so the pre-registered comparison was not evaluable (Figure~\ref{fig:beijing}c).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig5_beijing.pdf}
+\caption{S1, left- versus right-hand imagery in acute stroke. \textbf{a}~Per-patient choice of window and band: fixed, chosen by nested cross-validation, and chosen in hindsight. The hindsight choice overstates accuracy by 13.5 points. \textbf{b}~Window ensemble versus base decoder for development and locked test patients; red lines mark patients harmed. \textbf{c}~Calibration accuracy on the first 20 trials (leave-one-pair-out) against accuracy on the later trials; patients passed by the gate in blue.}
+\label{fig:beijing}
+\end{figure}
+
+\subsection{Few-trial calibration of affected-hand imagery versus rest (S3)}
+\label{sec:s3}
+
+Task~B is far easier: the own decoder reached 81.7\pct{} with five calibration pairs and 84.7\pct{} with ten (Figure~\ref{fig:strategies}).
+\begin{itemize}
+  \item \textbf{Deep transfer.} Every fine-tuned variant trailed the own decoder at both calibration sizes, by 4.5--12.2 points: healthy pretraining 76.6\pct{} and 76.3\pct{}, adding a LesionSim copy 76.3\pct{} and 76.5\pct{}, adding a generic-augmentation copy 74.5\pct{} and 72.5\pct{}, adding the other patients 77.2\pct{} and 76.3\pct{}. The deep models barely profited from twice as much calibration data.
+  \item \textbf{Frozen foundation model.} The CBraMod probe trailed by 14--24 points (58.2--68.2\pct{}).
+  \item \textbf{Riemannian pooling.} Pooling healthy donors into the re-centred Riemannian decoder did not help (78.9\pct{} and 84.3\pct{}), nor did LesionSim donors in population mode (79.7\pct{} and 84.2\pct{}) or patient-matched mode (78.6\pct{} and 83.5\pct{}).
+\end{itemize}
+
+Pooling the other development patients' recordings was the only strategy that improved on the own decoder. With five calibration pairs it reached 84.0\pct{}; median gain +1.4 points, $p = 0.004$, Holm-corrected $p = 0.018$; 11 of 16 patients helped and none harmed by 2 points or more. With ten pairs it reached 86.1\pct{} (+0.8 points, $p = 0.16$). The pre-registered test on the eight locked patients confirmed the five-pair result: 77.1\pct{} to 81.4\pct{}, one-sided $p = 0.035$, with 7 patients helped, 1 harmed, and all 8 above chance afterwards (Figure~\ref{fig:pooling}). Pooled decoding with five calibration pairs (81.4\pct{}) matched the own decoder with ten (79.5\pct{}), halving the calibration needed.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_pooling.pdf}
+\caption{Pooling other patients' data into the re-centred Riemannian decoder (S3, Task~B). \textbf{a}~Development patients and \textbf{b}~locked test patients with five calibration pairs: each line is a patient, red when harmed; bars and numbers give means. \textbf{c}~Mean accuracy and bootstrap 95\pct{} confidence intervals with five and ten calibration pairs.}
+\label{fig:pooling}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_transfer_strategies.pdf}
+\caption{Sources of borrowed data for few-trial calibration (S3 development patients, Task~B), with \textbf{a}~five and \textbf{b}~ten calibration pairs. Points are means over 16 patients, lines bootstrap 95\pct{} confidence intervals; the dotted line marks the own decoder. Healthy data and LesionSim in every form, and the frozen foundation model, stay at or below the own decoder; only real patients' data improves on it.}
+\label{fig:strategies}
+\end{figure}
+
+\subsection{LesionSim does not turn healthy donors into useful ones}
+\label{sec:lesionsim}
+
+Real patients were better donors than healthy participants by 5.1 points (84.0\pct{} vs 78.9\pct{} with five pairs). If LesionSim captured what distinguishes stroke data, its output should fall between the two. It did not.
+\begin{itemize}
+  \item All 27 learned settings scored between 78.5\pct{} and 80.0\pct{} (Figure~\ref{fig:lesionsim}).
+  \item Chosen honestly across patients, the best setting gave 78.8\pct{}, no better than unmodified healthy donors (median $-0.7$ points, $p = 0.80$). It closed none of the gap; even the best setting in hindsight closed only 21\pct{} of it.
+  \item The honestly chosen setting differed in every fold.
+  \item In patient-matched mode, the estimated attenuation and shift mostly sat at their bounds: $\alpha = 1$ and $\beta = 1$ in the median. The chronic patients' ipsilesional mu desynchronisation was usually not weaker than the healthy participants' ($-13\pct{}$ ipsilateral and $-9\pct{}$ contralateral on average), contrary to the premise of operator O1.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.86\linewidth]{figures/fig3_lesionsim_settings.pdf}
+\caption{LesionSim with learned settings (S3 development patients, five calibration pairs). Each cell is the mean accuracy of the pooled decoder with healthy donors transformed by one setting of attenuation $\alpha$, contralesional shift $\beta$ and trial-to-trial spread. All settings stay far below real-patient donors.}
+\label{fig:lesionsim}
+\end{figure}
+
+\subsection{SafeTransfer protects against harmful transfer}
+\label{sec:gate}
+
+When the transferred decoder was the LesionSim-pretrained EEGNet, always transferring harmed 9 of 16 development patients with five calibration pairs and 11 of 16 with ten. The gate harmed 2 and 1 (exact McNemar tests, $p = 0.008$ and $p = 0.001$; Figure~\ref{fig:gate}). It also raised mean accuracy over always transferring, by 4.2 points with five pairs (95\pct{} CI 0.0 to 8.6, $p = 0.033$) and by 8.1 points with ten (1.7 to 13.3, $p = 0.001$). The gate mostly kept the patient's own decoder. It did not beat always using the own decoder (80.6\pct{} vs 81.7\pct{} and 84.4\pct{} vs 84.7\pct{}). Its value is safety: when it is not known whether a transferred model helps a given patient, the gate decides from calibration data alone. With five pairs it abstained for 4 patients, and the remaining 12 reached 83.5\pct{}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.78\linewidth]{figures/fig4_safetransfer.pdf}
+\caption{SafeTransfer gate (S3 development patients). \textbf{a}~Patients harmed (at least 2 points below their own decoder) when always transferring, always averaging, or gating. \textbf{b}~Mean accuracy.}
+\label{fig:gate}
+\end{figure}
+
+\input{results_neuro.tex}
+
+\subsection{Real-time operation}
+\label{sec:online}
+
+Streaming each S3 locked test patient's raw recording through the online pipeline reproduced the offline evaluation. With five calibration pairs, the own decoder averaged 77.1\pct{} online and offline, and the pooled decoder 82.5\pct{} online against 81.4\pct{} offline; per-patient differences came only from the causal filter. Processing took a median of 12.6\,ms per epoch in this streaming check. Over real Lab Streaming Layer streams, with the machine under full load, it took 21--23\,ms (maximum 54\,ms), and the final accuracies were identical to the streaming check. A decision is therefore available about 4\,s after each cue, at the end of the imagery window.
+
+\section{Discussion}
+
+Across two stroke cohorts and four ways of borrowing data, only one source helped a new patient with few calibration trials: other stroke patients. Pooling their recordings into a re-centred Riemannian decoder lifted accuracy with five rest--imagery pairs on never-seen patients, reaching what the patient's own decoder needed ten pairs for. Healthy recordings did not help in any form: as pretraining for a deep network, as donors for the Riemannian decoder, transformed by a physiology-based simulator in six variants, or distilled into a foundation model.
+
+Why do real patients help when healthy participants do not? Re-centring removes each domain's average covariance, so what remains to transfer is the direction that separates imagery from rest. Healthy and stroke brains, recorded with different equipment and paradigms, differ in that direction more than stroke patients differ from each other (Section~\ref{sec:neuro}). LesionSim edits a few envelope statistics of healthy data, such as lesioned-side attenuation, contralesional shift and trial-to-trial variability. Even with learned settings this moved the healthy donors less than a quarter of the way toward real patients, and the patients it was meant to imitate did not show the assumed weaker lesioned-side desynchronisation. The practical conclusion is to pool real patient data across hospitals rather than synthesise it, and to share stroke recordings in harmonised form.
+
+The results also bound what can be expected from left- versus right-hand imagery early after stroke with a portable 29-channel system and 40 trials. Most patients did not reach chance-adjusted significance with any decoder, and pretraining on the other patients did not change that. Calibration data identified who could, while clinical scores could not. A short screening session could therefore decide whether imagery-based feedback is worth offering, and the gate's abstention is the honest output for the rest.
+
+Several evaluation pitfalls produced effects as large as the method differences studied here: hindsight selection (+13.5 points), transductive re-centring (+5 points) and a numerical failure of Euclidean alignment that manufactured negative transfer. Locked test sets, chronological calibration and pre-registered single-shot confirmation kept them out of the conclusions.
+
+\paragraph{Limitations.}
+\begin{itemize}
+  \item The locked test sets are small (8 and 15 patients). The S3 confirmation rests on a one-sided test at $p = 0.035$, and the S1 locked set was used for two pre-registered hypotheses.
+  \item All analyses are offline. The real-time system replays recordings rather than closing the loop with patients, and no clinical outcome was measured.
+  \item Device and site are confounded with health status: healthy donors were recorded on a different system and paradigm from either stroke cohort. Part of the healthy-donor gap may therefore be technical rather than neurological. Same-device healthy controls (HEFMI-ICH) carried too little imagery signal to separate the two.
+  \item LesionSim covers one family of envelope operators. A learned generative translation from healthy to stroke EEG was not attempted.
+  \item A third left/right stroke cohort \citep{mathi2025} requires an access password that had not arrived at the time of writing.
+\end{itemize}
+
+\section{Conclusion}
+
+For motor-imagery BCIs after stroke, data from other stroke patients shortens calibration, while healthy data, simulated stroke data and frozen foundation-model features do not. A re-centred Riemannian decoder pooled across patients halved the calibration needed on never-seen patients, and a calibration-only gate prevented harmful transfer. Building such systems will depend on shared, harmonised patient data rather than on simulating patients from healthy brains.
+
+\section*{Data and code availability}
+All datasets are public \citep{liu2024,wang2026,schalk2004,goldberger2000}. The code that rebuilds the harmonised benchmark, every experiment script, the per-patient result tables, the real-time implementation and the pre-registration log with its commit history are available at \url{https://github.com/prayag-1771/HemiShift}.
