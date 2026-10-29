@@ -36,6 +36,42 @@ only.
 
 ## Log
 
+### 2026-10-29 · S3 neuroscience analysis (PLAN §9; descriptive, all 24 patients, fixed methods)
+
+`scripts/s3_neuro.py`. Results in `results/summary/s3_neuro_{erd,alignment,longitudinal}.csv`;
+figure in `paper/figures/fig6_neuro.pdf`.
+- **ERD, stroke vs healthy** (relative to rest; lesion normalised to the left):
+  - Patients desynchronise more almost everywhere: mu −17 to −25 % vs −6 to −17 %
+    (Holm-significant at 11 of 14 channels; not at C3, Cz or CP3); beta at all 14.
+  - **Laterality reverses.** Laterality index (positive = stronger at C3): healthy +0.11, stroke
+    −0.10 in mu; +0.13 vs −0.17 in beta (both p < 0.001).
+  - The contralesional shift is what operator O2 imitates. The stronger ipsilesional ERD
+    contradicts O1's "weaker" premise. Device and paradigm also differ between the cohorts.
+- **Direction alignment** (re-centred tangent space, imagery-vs-rest class-mean direction):
+  - Cosine with the other patients' pooled direction: median 0.87. With the healthy donors':
+    0.78 (Wilcoxon p = 0.0002; patients closer for 22/24).
+  - Within-patient split-half ceiling: 0.92.
+  - This explains the pooling result: other patients give a direction almost as good as more
+    of the patient's own data.
+- **Longitudinal** (own TS + LR, blocked CV):
+  - pre 87.8 % (n = 24), post 85.8 % (n = 24), follow-up 85.6 % (n = 19).
+  - Changes: post − pre −2.0 (p = 0.18); follow − pre −2.1 (p = 0.038, Holm 0.11). Mu ERD at
+    C3/C4 unchanged (p = 0.46 / 0.44).
+  - Decodability is stable across the study period.
+
+### 2026-10-29 · Phase 7: manuscript draft
+
+`paper/` holds the LaTeX draft, the figures and the bibliography.
+- **Manuscript:** `main.tex`, `results.tex`, `results_neuro.tex`.
+- **Figures:** six, from `scripts/make_figures.py`, regenerated from the result CSVs.
+- **Bibliography:** `refs.bib`, 32 entries, each retrieved from a registry (doi.org, arXiv
+  API, OpenAlex, Europe PMC), with no hand-typed metadata.
+- **Framing:** the plan's fallback (§12). The paper stands on the benchmark, SafeTransfer,
+  the foundation-model arm and the confirmed pooling result, plus an honest analysis of why
+  simulation did not help.
+- `paper/lint.py` checks environments, braces, citations, references and figures (no LaTeX is
+  installed here).
+
 ### 2026-10-25 · Phase 6: the live demo runs end to end
 
 `demo/` (see `demo/README.md`).

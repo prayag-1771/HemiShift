@@ -51,14 +51,14 @@ def save(fig, name):
     print(f"wrote {name}")
 
 
-def paired(ax, a, b, labels, colors, title):
+def paired(ax, a, b, labels, colors, title, fmt="{:.1f}"):
     """Per-patient lines from a to b, with the group means."""
     for u, v in zip(a, b):
         ax.plot([0, 1], [u, v], color="#c7ccd4" if v >= u else "#f2b8b5", lw=0.9, zorder=1)
     for i, (values, color) in enumerate(((a, colors[0]), (b, colors[1]))):
         ax.scatter(np.full(len(values), i), values, s=10, color=color, zorder=2)
         ax.plot([i - 0.18, i + 0.18], [np.mean(values)] * 2, color=color, lw=2.4, zorder=3)
-        ax.text(i + (0.22 if i else -0.22), np.mean(values), f"{np.mean(values):.1f}", va="center",
+        ax.text(i + (0.22 if i else -0.22), np.mean(values), fmt.format(np.mean(values)), va="center",
                 ha="left" if i else "right", fontsize=7, color=color, fontweight="bold")
     ax.set_xticks([0, 1], labels)
     ax.set_xlim(-0.55, 1.55)
@@ -253,37 +253,38 @@ def fig6():
     erd, align, longi = read("s3_neuro_erd"), read("s3_neuro_alignment"), read("s3_neuro_longitudinal")
     info = mne.create_info(list(EXTENDED_TEMPLATE), 128.0, "eeg")
     info.set_montage("standard_1005")
-    fig = plt.figure(figsize=(7.2, 2.6))
-    grid = fig.add_gridspec(2, 5, width_ratios=[1, 1, 0.08, 1.15, 1.15], hspace=0.35, wspace=0.45)
+    fig = plt.figure(figsize=(7.2, 4.6))
+    top, bottom = fig.subfigures(2, 1, height_ratios=[1, 1.25])
+    grid = top.add_gridspec(1, 5, width_ratios=[1, 1, 1, 1, 0.06], wspace=0.25)
     vmax = 30
-    for row, band in enumerate(("mu", "beta")):
-        for col, group in enumerate(("healthy", "stroke")):
-            ax = fig.add_subplot(grid[row, col])
-            values = 100 * erd[(erd.group == group) & (erd.band == band)][list(EXTENDED_TEMPLATE)].mean().to_numpy()
-            im, _ = mne.viz.plot_topomap(values, info, axes=ax, show=False, cmap="RdBu_r", vlim=(-vmax, vmax),
-                                         contours=0, sensors=True)
-            if row == 0:
-                ax.set_title(f"{group}\n(n = {erd[(erd.group == group)].subject.nunique()})", fontsize=7.5)
-            if col == 0:
-                ax.text(-0.25, 0.5, band, transform=ax.transAxes, rotation=90, va="center", fontsize=7.5, fontweight="bold")
-    cax = fig.add_subplot(grid[:, 2])
-    cbar = fig.colorbar(im, cax=cax)
-    cbar.set_label("relative ERD (%), MI vs rest; lesion left", fontsize=6.5)
-    ax = fig.add_subplot(grid[:, 3])
-    paired(ax, align["cos_healthy"], align["cos_patients"], ["healthy\ndonors", "other\npatients"], (HEALTHY, PATIENT),
-           "b  Direction alignment")
-    ax.set_ylabel("cosine with the patient's own direction")
-    ax = fig.add_subplot(grid[:, 4])
+    panels = [("mu", "healthy"), ("mu", "stroke"), ("beta", "healthy"), ("beta", "stroke")]
+    for col, (band, group) in enumerate(panels):
+        ax = top.add_subplot(grid[0, col])
+        values = 100 * erd[(erd.group == group) & (erd.band == band)][list(EXTENDED_TEMPLATE)].mean().to_numpy()
+        im, _ = mne.viz.plot_topomap(values, info, axes=ax, show=False, cmap="RdBu_r", vlim=(-vmax, vmax),
+                                     contours=0, sensors=True)
+        ax.set_title(f"{band}, {group} (n = {erd[erd.group == group].subject.nunique()})", fontsize=7.5)
+    cbar = top.colorbar(im, cax=top.add_subplot(grid[0, 4]))
+    cbar.set_label("relative ERD (%)", fontsize=6.5)
+    top.suptitle("a  ERD maps, imagery vs rest (lesion on the left; healthy: left = contralateral)",
+                 x=0.01, ha="left", fontsize=8.5, fontweight="bold")
+    ax_b, ax_c = bottom.subplots(1, 2, gridspec_kw={"wspace": 0.35})
+    paired(ax_b, align["cos_healthy"], align["cos_patients"], ["healthy\ndonors", "other\npatients"],
+           (HEALTHY, PATIENT), "b  Alignment of imagery-vs-rest directions", fmt="{:.2f}")
+    ax_b.axhline(align["split_half"].median(), color="#6b7280", lw=0.8, ls=":")
+    ax_b.text(1.5, align["split_half"].median(), "within-patient\nsplit-half", fontsize=6, color="#6b7280",
+              ha="right", va="bottom")
+    ax_b.set_ylabel("cosine with the patient's own direction")
     wide = longi.pivot(index="subject", columns="phase", values="accuracy")[["pre", "post", "follow"]]
     for _, r in wide.iterrows():
-        ax.plot(range(3), r.to_numpy(), color="#d1d5db", lw=0.8, marker="o", ms=2)
-    ax.plot(range(3), wide.mean().to_numpy(), color="#111827", lw=2.2, marker="o", ms=4)
+        ax_c.plot(range(3), r.to_numpy(), color="#d1d5db", lw=0.8, marker="o", ms=2)
+    ax_c.plot(range(3), wide.mean().to_numpy(), color="#111827", lw=2.2, marker="o", ms=4)
     for i, m in enumerate(wide.mean()):
-        ax.text(i, m + 3, f"{m:.1f}", ha="center", fontsize=6.8, fontweight="bold")
-    ax.set_xticks(range(3), ["pre", "post", "follow-up"])
-    ax.set_ylabel("own decoder accuracy (%)")
-    ax.set_title("c  Across the study period")
-    fig.text(0.02, 0.97, "a  ERD maps", fontsize=8.5, fontweight="bold", va="top")
+        ax_c.text(i, m + 2.5, f"{m:.1f}", ha="center", fontsize=6.8, fontweight="bold")
+    ax_c.set_xticks(range(3), [f"pre\n(n = {wide['pre'].notna().sum()})", f"post\n(n = {wide['post'].notna().sum()})",
+                               f"follow-up\n(n = {wide['follow'].notna().sum()})"])
+    ax_c.set_ylabel("own decoder accuracy (%), blocked CV")
+    ax_c.set_title("c  Decodability across the study period")
     save(fig, "fig6_neuro")
 
 
