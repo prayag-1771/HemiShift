@@ -36,6 +36,87 @@ only.
 
 ## Log
 
+### 2026-10-31 · AMENDMENT to the S4 pre-registration (committed before any S4 decoding)
+
+The S3 sweep and the confound check (both below, dev only) fix the remaining hypotheses. No
+Liu2025 EEG has been decoded; the download is still running.
+- **H-R2:** a pooled decoder with a mu / low-beta / high-beta bank (8–13, 13–20, 20–30 Hz;
+  the three bands' tangent vectors side by side; otherwise identical) beats the confirmed
+  pooled decoder in the pre session at k = 5.
+  - This is the sweep's best variant (fb4) without its theta band. The confound check showed
+    that theta is where eye activity separates rest from imagery.
+  - Dropping theta keeps 2.6 of fb4's 3.0 points on dev.
+- **H-R3:** the patient's own earlier sessions as donors beat own in the later sessions at
+  k = 5 (post with pre; follow-up with pre + post). The score is each patient's mean over the
+  two later sessions.
+- **H-R4:** the earlier sessions' decoder with no labels is not worse than own at k = 5 by
+  2 points or more (non-inferiority; one-sided Wilcoxon on the difference plus 2).
+  - The later session is re-centred on its calibration epochs, whose labels are not used.
+  - The 2-point margin is the pre-registered negative-transfer margin.
+- **Error control (replaces "Holm over H-R1 and H-R2"):** fixed sequence. H-R1 is tested at
+  α = 0.05. Only if it is confirmed are H-R2 to H-R4 tested, with Holm at α = 0.05.
+- **Descriptive only:** k = 10; earlier sessions plus other patients; a co-adaptive pooled
+  decoder (refitted after every trial with its cue label).
+
+### 2026-10-31 · S3 confound check: non-motor channels also separate imagery from rest (dev)
+
+`scripts/s3_confound_check.py`. Results in `results/summary/s3_confound_check_dev.csv`. Each
+channel group is re-referenced to its own average.
+
+| Channels | own / pooled, k = 5 |
+|---|---|
+| motor template, 8–30 Hz (the decoders' input) | 81.7 / 84.0 % |
+| strict motor strip (FC, C, CP rows), 8–30 Hz | 81.1 / 82.1 % |
+| occipital, 8–30 Hz | 74.3 / 76.1 % |
+| frontal (eyes), 1–8 Hz | 77.3 / 77.7 % |
+| frontal, 8–30 Hz | 60.3 / 62.4 % |
+| temporal (muscle), 8–30 Hz | 66.1 / 68.1 % |
+
+- **In S3, rest and imagery also differ outside motor cortex:** in eye activity (frontal slow
+  waves, 77 %) and in posterior alpha (74–76 %). The sweep's occipital control (79 %) was
+  partly the 59-channel common average spreading the motor ERD to every channel.
+- **The motor decoders are unlikely to be eye-driven.** Frontal 8–30 Hz alone reaches only
+  60 %. The strict motor strip, away from the eyes and visual cortex, keeps 81–82 %, and
+  pooling still helps there.
+- **The filter-bank gain is not the theta band:**
+  - pooled fb4 87.0 %; fb4 without theta 86.6 %; theta alone 77.2 %.
+  - On the strict motor strip, the bank without theta still adds 1.6 points over 8–30 Hz.
+- **For the paper:** Task B accuracy is not purely motor in this paradigm. Report it, and keep
+  the decoders on the motor template.
+
+### 2026-10-31 · S3 sweep: 40 untried variants of the pooled decoder (dev, exploratory)
+
+`scripts/s3_sweep.py`. 16 dev patients, protocol P3. Results in
+`results/summary/s3_sweep_pre_dev.csv`. The generic code reproduces the confirmed pooled
+decoder in 100 % of rows (own 81.7 %, pooled 84.0 % at k = 5).
+
+| Idea | Best at k = 5 | vs pooled 84.0 % |
+|---|---|---|
+| Filter bank | fb4 (theta, mu, low beta, high beta): 87.0 % | +3.0 (median +1.4, p 0.062; 9 helped / 3 harmed) |
+| More channels | 59 channels + mu/beta/8–30 bank: 86.5 % | +2.5 (p 0.16) |
+| Single bands | beta 85.9 %; mu 79.2 % | +2.0; −4.7 (Holm 0.045) |
+| Longer window (0.5–5.5 s) | no effect | factor means 85.3 vs 85.2 % |
+| Donor weight 0.5–8 ×, LR C | −0.7 to +0.8; C = 0.1 hurts (−1.9) | |
+| Fewer, closer donors (8 nearest, 8 best-fitting) | −0.5, −0.4 | |
+| Stretching, SVM, 9-member ensemble, mixup | −0.9, +0.4, +0.6, ±0 | |
+| No labels (other patients only) | 80.0 % | −3.9 (vs own −1.6) |
+
+- **No fixed-calibration variant survives Holm** over the 31 comparisons.
+- **Honest "pick the best" estimate** (leave-one-patient-out selection):
+  - k = 5: 85.8 % vs 84.0 % (median +1.4, p 0.19). fb4 is picked in 14 of 16 folds.
+  - k = 10: +0.5.
+- **Factor means over the 12 structure combinations (k = 5):**
+  - 14 / 28 / 59 channels: 84.7 / 85.3 / 85.7 %
+  - window 0.5–4.0 / 0.5–5.5 s: 85.3 / 85.2 %
+  - 8–30 Hz / bank: 85.0 / 85.5 %
+- **Online adaptation is the only clear gain.**
+  - Refitting after every pair with its cue label (co-adaptive calibration, a known technique)
+    gives 88.6 % pooled and 88.5 % own: +4.6 and +4.5 over the fixed pooled decoder (Holm
+    0.010 and 0.029; 12/1 and 9/1).
+  - Pooling adds nothing once the decoder adapts. This is a different protocol: each trial's
+    label is used after the trial is decoded.
+  - Unsupervised running re-centring: 85.7 % (+1.7, p 0.039).
+
 ### 2026-10-31 · S3 cross-session transfer: the patient's own earlier session as a donor (dev, exploratory)
 
 `scripts/s3_cross_session.py`. Results in `results/summary/s3_cross_session_dev.csv`.
