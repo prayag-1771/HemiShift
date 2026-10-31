@@ -49,6 +49,21 @@ survives cleaning, so it is checked once on the 8 locked-test patients.
   P3 with k = 5 (and 10). The band-bank pooled decoder (H-R2's) is reported alongside.
 - **Script:** `scripts/s3_locked_sensitivity.py`.
 
+**Result (run once).** Results in `results/summary/s3_locked_sensitivity.csv`. The cleaned
+release keeps 52–80 epochs per patient.
+
+| k | own 8–30 | pooled 8–30 (the confirmed decoder) | pooled band bank |
+|---|---|---|---|
+| 5 | 76.6 % | 78.2 % (+1.6; 5/2; one-sided p 0.29) | **80.0 %** (+3.5 vs own; 5/1; p 0.031) |
+| 10 | 78.6 % | 79.2 % (+0.7; p 0.22) | **83.3 %** (+4.8 vs own; 5/0; p 0.031; +4.1 vs pooled 8–30, p 0.016) |
+
+- **The confirmed single-band gain shrinks on cleaned data:** +4.3 on the raw recordings,
+  +1.6 here (not significant).
+- **The band-bank pooled decoder keeps the gain on cleaned data**, as it did on dev.
+- Reading: pooling helps few-trial calibration in both versions, but on cleaned data it needs
+  the band bank. This is the paper's main robustness limitation of the confirmed result. It
+  is also independent support for S4's H-R2 decoder (descriptive; not a confirmation).
+
 ### 2026-10-31 · S3 artifact check on the authors' ICA-cleaned release (dev)
 
 `scripts/s3_processed_check.py`. Results in `results/summary/s3_processed_check_dev.csv`.
