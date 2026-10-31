@@ -17,7 +17,10 @@ All one-sided Wilcoxon signed-rank over patients. Fixed sequence: H-R1 at alpha 
 if it is confirmed, H-R2 to H-R4 with Holm at alpha = 0.05.
 Descriptive only: k = 10, previous + other patients, a no-label decoder from the other
 patients (re-centred on the calibration epochs, labels unused), and co-adaptive own and
-pooled decoders (refitted before every test trial on all earlier labelled trials).
+pooled decoders (refitted before every test trial on all earlier labelled trials). Also, in
+the pre session (own and pooled, each channel group re-referenced to its own average): the
+S3 sweep's larger variants (fb4 with theta; 59 channels with a mu/beta/8-30 bank) and the
+confound controls (strict motor strip, occipital 8-30 Hz, frontal 1-8 Hz).
 
 Usage: .venv/Scripts/python -I scripts/s4_replication.py
 """
@@ -57,15 +60,24 @@ ALPHA = 0.05
 FB = ((8.0, 13.0), (13.0, 20.0), (20.0, 30.0))
 SESSIONS = ("pre", "post", "follow")
 LATER = (("post", ("pre",)), ("follow", ("pre", "post")))
+DESCRIPTIVE = {  # name: (channels, bands); each group re-referenced to its own average
+    "fb4_14ch": (EXTENDED_TEMPLATE, ((4.0, 8.0), (8.0, 13.0), (13.0, 20.0), (20.0, 30.0))),
+    "bank_59ch": (sweep.ALL59, ((8.0, 13.0), (13.0, 30.0), (8.0, 30.0))),
+    "strict_motor_830": (("FC3", "FCz", "FC4", "C3", "Cz", "C4", "CP3", "CP4"), ((8.0, 30.0),)),
+    "occipital_830": (sweep.OCCIPITAL, ((8.0, 30.0),)),
+    "frontal_1-8": (("Fpz", "Fp1", "Fp2", "AF3", "AF4", "AF7", "AF8"), ((1.0, 8.0),)),
+}
 OUT = RESULTS_DIR / "summary" / "s4_replication.csv"
+OUT_DESCRIPTIVE = RESULTS_DIR / "summary" / "s4_descriptive.csv"
 
 
-def load_patients(session="pre"):
-    """One session's epochs per patient in recording order: X (n, 14, 448), y (MI 1, idle 0).
-    Patients excluded by the pre-registered rules are left out."""
+def load_patients(session="pre", template=EXTENDED_TEMPLATE):
+    """One session's epochs per patient in recording order: X (n, channels, 448), y (MI 1,
+    idle 0). Patients excluded by the pre-registered rules are left out."""
     import moabb.datasets as moabb_datasets
 
-    cache = HARMONISED_DIR / f"s4_liu2025_{session}_t14.npz"
+    tag = "t14" if template == EXTENDED_TEMPLATE else f"t{len(template)}"
+    cache = HARMONISED_DIR / f"s4_liu2025_{session}_{tag}.npz"
     if cache.exists():
         data = np.load(cache)
         patients = {int(key[1:]): (data[key], data["y" + key[1:]])
@@ -78,7 +90,7 @@ def load_patients(session="pre"):
             try:
                 e = load_moabb_epochs(dataset, sides, "liu2025", group,
                                       events=("gait_imagery", "rest"), subjects=[subject],
-                                      template=EXTENDED_TEMPLATE)
+                                      template=template)
             except Exception as exc:  # pre-registered: unreadable sessions are excluded
                 print(f"{session} sub {subject}: excluded, cannot be read "
                       f"({type(exc).__name__}: {exc})")
@@ -197,6 +209,35 @@ def cross_session_rows(sessions, C):
     return rows
 
 
+def descriptive_rows(X59):
+    """Own and pooled TS + LR on the DESCRIPTIVE channel groups and band banks (pre session)."""
+    rows = []
+    for name, (channels, bands) in DESCRIPTIVE.items():
+        C = {s: [sweep.covariances(sweep.subset(X, channels), band) for band in bands]
+             for s, (X, _) in X59.items()}
+        TF = {s: np.hstack([sweep.tangent(c, np.arange(len(c))) for c in C[s]]) for s in X59}
+        for s, (_, y) in X59.items():
+            others = [o for o in X59 if o != s]
+            donor_T = np.vstack([TF[o] for o in others])
+            donor_y = np.concatenate([X59[o][1] for o in others])
+            for k in KS:
+                cal, test = calibration_split(y, k, mode="first")
+                T = np.hstack([sweep.tangent(c, cal) for c in C[s]])
+                own = sweep.lr().fit(T[cal], y[cal]).predict_proba(T[test])[:, 1]
+                pooled = sweep.lr().fit(
+                    np.vstack([T[cal], donor_T]), np.concatenate([y[cal], donor_y]),
+                    sample_weight=sweep.donor_weights(len(cal), len(donor_y), 1.0)
+                ).predict_proba(T[test])[:, 1]
+                rows.append({"variant": name, "subject": s, "k": k, "n_test": len(test),
+                             "own": accuracy(own, y[test]), "pooled": accuracy(pooled, y[test])})
+        t = pd.DataFrame(rows)
+        t = t[t["variant"] == name]
+        print(f"  {name:17s} " + " | ".join(
+            f"k={k}: own {t[t.k == k]['own'].mean():5.1f} pooled {t[t.k == k]['pooled'].mean():5.1f}"
+            for k in KS), flush=True)
+    return rows
+
+
 def one_sided(diff):
     """One-sided Wilcoxon signed-rank p for median(diff) > 0 (zeros dropped)."""
     diff = np.asarray(diff, dtype=float)
@@ -262,7 +303,18 @@ def main():
         for target, _ in LATER:
             describe(f"{target} only", "previous", "own",
                      later[(later["k"] == k) & (later["session"] == target)])
-    print(f"results in {OUT}")
+
+    print("\n=== descriptive: larger S3 variants and confound controls (pre session) ===")
+    extra = pd.DataFrame(descriptive_rows(load_patients("pre", sweep.ALL59)))
+    extra.to_csv(OUT_DESCRIPTIVE, index=False)
+    for k in KS:
+        reference = pool[pool["k"] == k].set_index("subject")["pooled"]
+        for name in ("fb4_14ch", "bank_59ch"):
+            t = extra[(extra["variant"] == name) & (extra["k"] == k)].set_index("subject")
+            diff = t["pooled"] - reference.loc[t.index]
+            print(f"  k = {k}, {name} pooled vs the confirmed pooled: mean diff {diff.mean():+.1f}, "
+                  f"median {diff.median():+.1f}, helped {(diff > 0).sum()}, harmed {(diff < 0).sum()}")
+    print(f"results in {OUT} and {OUT_DESCRIPTIVE}")
 
 
 if __name__ == "__main__":

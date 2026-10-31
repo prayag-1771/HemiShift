@@ -36,6 +36,32 @@ only.
 
 ## Log
 
+### 2026-10-31 · S3 sweep repeated on the dev patients' post-treatment sessions (dev, exploratory)
+
+`scripts/s3_sweep.py --phase post`. Results in `results/summary/s3_sweep_post_dev.csv`.
+- **Setup:** the same 16 dev patients, their post-training session. Donors are the other dev
+  patients' post sessions.
+- **Baseline:** own 80.7 %, pooled 82.1 % at k = 5.
+
+| Variant (vs pooled) | pre, k = 5 | post, k = 5 | post, k = 10 |
+|---|---|---|---|
+| 59 channels + mu/beta/8–30 bank | +2.5 | **+4.8** (p 0.006; 12/2) | +3.2 |
+| fb4 (theta, mu, low and high beta), 14 channels | +3.0 | +3.7 (p 0.004; 13/2) | +3.1 (p 0.001, Holm 0.023) |
+| fb4 without theta (H-R2's decoder) | +2.6 | +1.1 (p 0.25) | +1.6 (p 0.018) |
+| co-adaptive pooled (online protocol) | +4.6 | +3.8 (Holm 0.023) | +2.0 |
+
+- **The ranking replicates across sessions.** Band banks and more channels lead in both.
+  Donor weighting, donor selection, stretching, ensembles and mixup do nothing in either.
+- **Honest selection now gains:** 85.1 vs 82.1 % at k = 5 (median +2.1, p 0.014). The
+  59-channel bank is picked in 14 of 16 folds.
+- **But the larger gains lean on bands and channels outside the motor signal.**
+  - Theta matters more in the post session: fb4 gains +3.7, but only +1.1 without theta.
+    Theta is where eye activity separates rest from imagery.
+  - The 59-channel decoder includes occipital channels, which alone decode at 77–80 % here.
+- **Decision:** H-R2 stays as registered (motor channels, no theta). That is the variant a
+  reviewer cannot put down to eyes or vision. fb4, the 59-channel bank and the confound
+  controls are added to the S4 run as descriptive results only, before any S4 decoding.
+
 ### 2026-10-31 · AMENDMENT to the S4 pre-registration (committed before any S4 decoding)
 
 The S3 sweep and the confound check (both below, dev only) fix the remaining hypotheses. No
