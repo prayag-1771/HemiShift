@@ -70,6 +70,14 @@ def hefmi_affected_side():
     return dict(zip(table["moabb_subject"].astype(int), table["affected_side"]))
 
 
+def liu2025_affected_side():
+    """Paralysed side per Liu2025 patient, from the figshare release's participants.tsv
+    (fetched by scripts/download_all.py into data/raw/liu2025_meta)."""
+    table = pd.read_csv(RAW_DIR / "liu2025_meta" / "participants.tsv", sep="\t")
+    return {int(pid.split("-")[1]): side
+            for pid, side in zip(table["subject_id"], table["affected_side"])}
+
+
 WANG2026SF_EVENTS = {"1": "rest", "2": "affected_mi", "3": "sixth_finger_mi"}
 
 
@@ -86,10 +94,11 @@ def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S, templa
     Each 14 s trial is an 8 s rest then a 6 s MI, so `window` (seconds from each event
     onset) cuts rest and MI epochs alike. The .set files hold non-ASCII text, so they need
     uint16_codec='latin1'. Runs are read in file order (01-04 per phase), which is recording
-    order.
+    order. Epochs are cut to the window's length (448 samples for the default window).
     """
     import mne
 
+    n_times = int(round((window[1] - window[0]) * TARGET_SFREQ))
     sides = wang2026sf_affected_side()
     parts, labels, metas = [], [], []
     for subject in subjects:
@@ -111,7 +120,7 @@ def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S, templa
                                     baseline=None, picks="eeg", preload=True, verbose="error")
                 epochs = epochs.resample(TARGET_SFREQ, verbose="error")
                 names = {code: name for name, code in wanted.items()}
-                X_subject.append(fix_length(epochs.get_data(copy=False)) * 1e6)
+                X_subject.append(fix_length(epochs.get_data(copy=False), n_times) * 1e6)
                 y_subject.extend(names[code] for code in epochs.events[:, 2])
                 meta_subject.extend([(phase, run_index)] * len(epochs))
         X, y = harmonise(np.concatenate(X_subject), epochs.ch_names, y_subject, sides[subject],
@@ -142,6 +151,8 @@ def moabb_cohort(name):
     dataset = getattr(moabb_datasets, COHORTS[name]["source"])()
     if name == "liu2024":
         return dataset, liu2024_affected_side(), "stroke"
+    if name == "liu2025":
+        return dataset, liu2025_affected_side(), "stroke"
     if COHORTS[name]["role"] == "healthy":
         return dataset, healthy_side, "healthy"
     if name == "hefmi_ich":  # subjects 1-17 healthy controls, 18-37 ICH patients

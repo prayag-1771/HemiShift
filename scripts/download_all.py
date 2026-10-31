@@ -139,6 +139,64 @@ def prefetch_hefmi(workers=4):
                 print(f"[hefmi_ich] {done}/{len(jobs)} fetched and verified")
 
 
+LIU2025_ZENODO = "https://zenodo.org/api/records/18987384"
+
+
+def prefetch_liu2025(workers=3):
+    """Fetch Liu2025's 27 per-subject ZIPs (23.8 GB) from Zenodo into MOABB's layout.
+
+    MOABB keeps every ZIP after extracting it, which would double the disk use. Here each ZIP
+    is fetched resumably, checked against Zenodo's MD5, extracted next to a staging folder,
+    moved into place and deleted. A subject counts as done once its folder holds .vhdr files.
+    """
+    import shutil
+    import zipfile
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    import requests
+    from moabb.datasets import download as dl
+
+    # The Zenodo copy lacks the clinical table; the figshare original has it (file 49520820).
+    meta = RAW_DIR / "liu2025_meta" / "participants.tsv"
+    if not meta.exists():
+        meta.parent.mkdir(parents=True, exist_ok=True)
+        response = requests.get("https://ndownloader.figshare.com/files/49520820", timeout=60)
+        response.raise_for_status()
+        meta.write_bytes(response.content)
+
+    root = Path(dl.get_dataset_path("Liu2025", None)) / "MNE-liu2025-data"
+    root.mkdir(parents=True, exist_ok=True)
+    files = {f["key"]: f for f in requests.get(LIU2025_ZENODO, timeout=60).json()["files"]}
+
+    def fetch(subject):
+        name = f"sub-{subject:02d}"
+        if (root / name).is_dir() and any((root / name).rglob("*.vhdr")):
+            return True
+        info = files[f"{name}.zip"]
+        md5 = info["checksum"].removeprefix("md5:")
+        archive = fetch_resumable(info["links"]["self"], root / f"{name}.zip", info["size"], md5,
+                                  label=f"[liu2025] {name}.zip")
+        staging = root / f".staging-{name}"
+        shutil.rmtree(staging, ignore_errors=True)
+        with zipfile.ZipFile(archive) as zf:
+            zf.extractall(staging)  # zipfile drops absolute and ".." member paths
+        for child in staging.iterdir():
+            target = root / child.name
+            if target.exists():
+                shutil.rmtree(target) if target.is_dir() else target.unlink()
+            child.rename(target)
+        staging.rmdir()
+        if not any((root / name).rglob("*.vhdr")):
+            raise RuntimeError(f"[liu2025] {name}.zip did not unpack to {root / name}")
+        archive.unlink()
+        print(f"[liu2025] {name}: extracted, ZIP removed")
+        return True
+
+    with ThreadPoolExecutor(workers) as pool:
+        list(pool.map(fetch, range(1, 28)))
+
+
 def download_moabb(name, cohort, max_attempts=30):
     import time
 
@@ -164,6 +222,8 @@ def download_moabb(name, cohort, max_attempts=30):
                 prefetch_liu2024()
             elif name == "hefmi_ich":
                 prefetch_hefmi()
+            elif name == "liu2025":
+                prefetch_liu2025()
             dataset.download(accept=True)
             return True
         except Exception as exc:

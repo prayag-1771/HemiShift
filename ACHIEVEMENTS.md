@@ -36,6 +36,40 @@ only.
 
 ## Log
 
+### 2026-10-31 · PRE-REGISTRATION: replication of patient pooling on a new cohort (S4, Liu2025)
+
+Written and committed **before** any Liu2025 EEG is loaded (the download was still running).
+- **Cohort:** S4 Liu2025 (Scientific Data 2025; figshare 10.6084/m9.figshare.27130299, re-hosted
+  as Zenodo record 18987384; CC BY 4.0).
+  - 27 stroke patients, 1–12 months after onset, 18 with right and 9 with left hemiplegia.
+  - 60-channel Neuracle NeuSen W. Gait motor imagery vs idle, 10 + 10 trials per run in
+    random order, about 4 runs per session.
+  - Pre-treatment session only.
+- **Independence:** same institution (Tianjin University) and amplifier family as S3.
+  - Ages, sexes and paralysed sides suggest that some patients may be in both cohorts (e.g.
+    S3 sub-02 and S4 sub-23: 64, female, right).
+  - No S3 data are used here, so the replication is within S4. It is a new cohort and a new
+    limb, not a new hospital.
+- **Pipeline, frozen as confirmed on S3:**
+  - 1–40 Hz; epochs 0.5–4.0 s after MI or idle onset (event codes 3 and 9); 128 Hz.
+  - The 14-channel extended template with common average. Lesion moved to the left using
+    participants.tsv `affected_side`.
+  - 8–30 Hz OAS covariances.
+  - own = `s3_transfer.own_proba`. pooled = `s3_augment.pooled_proba` with the other 26
+    patients as donors, each re-centred on its own mean; all donors together weigh as much as
+    the calibration.
+- **Calibration (P3):** the first k trials per class in recording order calibrate (k = 5
+  primary, 10 secondary). All other trials of the session test.
+- **H-R1 (primary):** pooled > own at k = 5. One-sided Wilcoxon signed-rank over patients.
+- **Also reported:** k = 10, the mean difference with a bootstrap CI, helped/harmed, and
+  patients at or above chance.
+- **Exclusions:** a patient is excluded only if the session cannot be read or a class has
+  fewer than 20 trials.
+- **H-R2 (secondary, added by amendment):** the best variant from the S3 sweep
+  (`scripts/s3_sweep.py`, dev patients only) against pooled, at k = 5. It is fixed and
+  committed before any S4 decoding. If added, Holm runs over H-R1 and H-R2.
+- **Run once:** `scripts/s4_replication.py`. Whatever the outcome, it is reported.
+
 ### 2026-10-29 · S3 neuroscience analysis (PLAN §9; descriptive, all 24 patients, fixed methods)
 
 `scripts/s3_neuro.py`. Results in `results/summary/s3_neuro_{erd,alignment,longitudinal}.csv`;
