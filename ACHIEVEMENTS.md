@@ -36,6 +36,49 @@ only.
 
 ## Log
 
+### 2026-10-31 · RESULT (confirmed): S4 Liu2025 replication; all four pre-registered hypotheses hold
+
+`scripts/s4_replication.py`, run once after the download, as pre-registered (d0800e8,
+amended in 0d9b750, 34f0e28 and 494d526). Results in `results/summary/s4_replication.csv` and
+`results/summary/s4_descriptive.csv`.
+- **Data:** 27 patients, gait MI vs idle, the confirmed S3 code unchanged.
+- **Exclusions, as pre-registered:**
+  - The post and follow-up sessions of patients 3, 6, 8 and 11 are not in the release
+    ("cannot be read").
+  - Patient 26's follow-up has 10 trials per class, below the minimum of 20.
+  - So H-R3 and H-R4 use 23 patients.
+
+| | Comparison (k = 5) | Patients | Result | One-sided p | Holm | Verdict |
+|---|---|---|---|---|---|---|
+| H-R1 | pooled vs own, pre session | 27 | 70.8 vs 69.1 % (+1.6, 95 % CI +0.2 to +3.1; 14 helped / 6 harmed) | 0.018 | gatekeeper | **CONFIRMED** |
+| H-R2 | band-bank pooled vs pooled, pre session | 27 | 73.1 vs 70.8 % (+2.3, CI +0.5 to +4.1; 17/6) | 0.012 | 0.021 | **CONFIRMED** |
+| H-R3 | own earlier sessions vs own, later sessions | 23 | 70.7 vs 67.4 % (+3.2, CI +1.5 to +5.1; 16/5) | 0.0016 | 0.005 | **CONFIRMED** |
+| H-R4 | no-label earlier-session decoder vs own, margin 2 points | 23 | 69.7 vs 67.4 % (+2.3, CI −1.2 to +5.7; 15/7) | 0.010 | 0.021 | **CONFIRMED** (non-inferior) |
+
+- **Pooling replicates on a new cohort, a new limb and a new trial design.** The trials here
+  are randomised imagery and idle, not rest-then-imagery pairs. The gain is smaller than on
+  S3 (+1.6 vs +4.3 points), at a lower accuracy level (own 69 vs 77 %).
+- **The band bank adds +2.3 points on top: +4.0 over own.** The H-R2 decoder was chosen on S3
+  dev and kept free of the theta band.
+- **The patient's own earlier sessions help most at follow-up, as on S3 dev:**
+  - follow-up +5.4 (17/2), post +1.5
+  - at k = 10, +4.7 and +2.7
+- **No labels at all:** the earlier sessions' decoder (re-centred on the calibration epochs,
+  labels unused) is not worse than the own decoder with 5 labelled pairs. Mean +2.3; at
+  k = 10, +0.7 vs own with 10 pairs.
+- **Descriptive (no test):**
+  - k = 10: pooled +2.2 over own; bank +3.2 over pooled; earlier sessions +3.5.
+  - Co-adaptive decoders (refitted after every trial with its cue label): own 75.2 % (+6.1),
+    pooled 75.9 %.
+  - No-label decoder from the other patients only: 68.5 % vs own 69.1 % (−0.7).
+  - fb4 (with theta) pooled: 74.6 % (+3.8 over the confirmed pooled).
+  - 59-channel bank pooled: 77.9 % (+7.2; 21 helped / 1 harmed).
+  - Confound controls (own / pooled): occipital 63.7 / 63.9 %; frontal 1–8 Hz 64.9 / 67.8 %;
+    strict motor strip 67.8 / 69.7 %. Non-motor channels carry less here than in S3 (frontal
+    77 %), but some.
+- **Caveat:** same institution and amplifier family as S3, and some patients may be in both
+  cohorts. No S3 data were used here.
+
 ### 2026-10-31 · DECLARED BEFORE RUNNING: sensitivity of the confirmed S3 result to ICA cleaning
 
 The dev check above found that, on the authors' ICA-cleaned release, the single-band pooled
