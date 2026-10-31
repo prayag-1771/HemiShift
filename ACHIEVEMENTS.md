@@ -36,6 +36,39 @@ only.
 
 ## Log
 
+### 2026-10-31 · S3 cross-session transfer: the patient's own earlier session as a donor (dev, exploratory)
+
+`scripts/s3_cross_session.py`. Results in `results/summary/s3_cross_session_dev.csv`.
+- **Question:** in rehabilitation a patient returns for many sessions. Does the patient's own
+  earlier recording help calibrate the next one?
+- **Setup:** the target is a later session of a dev patient (post, or follow-up), calibrated
+  on its first k (rest, MI) pairs (P3) and tested on the rest.
+  - The donors are the patient's own earlier sessions ("previous": pre for post, pre + post for
+    follow-up), the other dev patients' same-phase recordings ("others"), or both.
+  - Same pooled code as confirmed; each donor group together weighs as much as the
+    calibration.
+  - "previous_zero" uses no labels from the later session at all: the earlier sessions'
+    decoder, with the later session re-centred on its first 2k epochs.
+
+| Target, k | own | others | previous | previous + others | previous_zero (no labels) |
+|---|---|---|---|---|---|
+| post, 5 (16 patients) | 80.7 % | 82.1 % (p 0.10) | 82.3 % (p 0.023, 7/1) | 82.8 % (p 0.044) | 81.3 % (p 0.35) |
+| post, 10 | 84.0 % | 84.3 % | 84.8 % | 84.8 % | 81.4 % (−2.6, p 0.044) |
+| follow-up, 5 (13 patients) | 77.9 % | 82.9 % (p 0.045) | 82.6 % (p 0.010, Holm 0.039; 9/1) | 84.2 % (p 0.021) | **84.5 %** (p 0.020) |
+| follow-up, 10 | 82.3 % | 85.6 % (p 0.11) | 86.0 % (p 0.008, Holm 0.031; 8/0) | **87.6 %** (p 0.014, Holm 0.041) | 85.4 % (p 0.086) |
+
+p-values are two-sided Wilcoxon vs own; Holm is over the four donor options within each row.
+- **The patient's own earlier sessions help, most at follow-up,** months after the first
+  recording. There the own 5-pair decoder is weakest (77.9 %), and earlier sessions add
+  4.7 points (9 helped, 1 harmed). Other patients help about as much. Both together are best
+  (84.2 % at k = 5, 87.6 % at k = 10).
+- **A returning patient may not need labelled calibration at all.**
+  - At follow-up, the earlier sessions' decoder, re-centred on 10 unlabelled epochs, scores
+    84.5 %. The own decoder scores 77.9 % with 5 labelled pairs and 82.3 % with 10.
+  - At post it matches the own 5-pair decoder (81.3 vs 80.7 %) but trails the 10-pair one.
+- **Exploratory:** 16 and 13 dev patients, 16 comparisons. Confirmation needs fresh
+  multi-session data; Liu2025 has pre, post and follow-up sessions for all 27 patients.
+
 ### 2026-10-31 · PRE-REGISTRATION: replication of patient pooling on a new cohort (S4, Liu2025)
 
 Written and committed **before** any Liu2025 EEG is loaded (the download was still running).

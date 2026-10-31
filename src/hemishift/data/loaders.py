@@ -168,8 +168,9 @@ def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand"
     """Epochs from a MOABB dataset object, harmonised patient by patient.
 
     `affected_side` maps a MOABB subject number to 'L' or 'R'. Stroke cohorts pass their
-    clinical table; healthy cohorts pass `healthy_side`. `window` (seconds from MI onset) must
-    span 3.5 s; a negative window cuts matched rest epochs from before each trial's cue.
+    clinical table; healthy cohorts pass `healthy_side`. `window` is in seconds from MI onset
+    (epochs are cut to its length, 448 samples for the default window); a negative window
+    cuts matched rest epochs from before each trial's cue.
     """
     from moabb.paradigms import MotorImagery
 
@@ -178,7 +179,8 @@ def load_moabb_epochs(dataset, affected_side, cohort, group, events=("left_hand"
         tmin=window[0], tmax=window[1], resample=TARGET_SFREQ,
     )
     epochs, labels, meta = paradigm.get_data(dataset, subjects=subjects, return_epochs=True)
-    data = fix_length(epochs.get_data(copy=False)) * 1e6  # volts -> microvolts
+    n_times = int(round((window[1] - window[0]) * TARGET_SFREQ))
+    data = fix_length(epochs.get_data(copy=False), n_times) * 1e6  # volts -> microvolts
     labels = np.asarray(labels)
 
     parts, part_labels, part_meta = [], [], []
