@@ -36,6 +36,19 @@ only.
 
 ## Log
 
+### 2026-10-31 · DECLARED BEFORE RUNNING: sensitivity of the confirmed S3 result to ICA cleaning
+
+The dev check above found that, on the authors' ICA-cleaned release, the single-band pooled
+decoder loses its edge. A reviewer will ask whether the confirmed locked-test result
+survives cleaning, so it is checked once on the 8 locked-test patients.
+- **Status:** this is a sensitivity analysis of an existing claim, not a new hypothesis. It
+  cannot add a confirmed result. It is reported whatever the outcome.
+- **Data:** it is the locked-test patients' second use (pre session, cleaned release instead of
+  raw). Donors are the 16 dev patients' cleaned recordings.
+- **Pipeline:** the confirmed comparison unchanged: own vs pooled, 14 channels, 8–30 Hz,
+  P3 with k = 5 (and 10). The band-bank pooled decoder (H-R2's) is reported alongside.
+- **Script:** `scripts/s3_locked_sensitivity.py`.
+
 ### 2026-10-31 · S3 artifact check on the authors' ICA-cleaned release (dev)
 
 `scripts/s3_processed_check.py`. Results in `results/summary/s3_processed_check_dev.csv`.
