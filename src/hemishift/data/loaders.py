@@ -88,27 +88,42 @@ def wang2026sf_affected_side():
             for pid, side in zip(table["subject_id"], table["Hemiplegia_side"])}
 
 
-def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S, template=MOTOR_TEMPLATE):
-    """S3 epochs (rest / affected-hand MI / sixth-finger MI) from the raw EEGLAB runs.
+WANG2026SF_SOURCES = {"raw": ("sourcedata", "*_original.set"),
+                      "processed": ("processeddata", "*_eeg.mat")}
+
+
+def load_wang2026sf_epochs(subjects, phases=("pre",), window=MI_WINDOW_S, template=MOTOR_TEMPLATE,
+                           source="raw"):
+    """S3 epochs (rest / affected-hand MI / sixth-finger MI) from the EEGLAB runs.
 
     Each 14 s trial is an 8 s rest then a 6 s MI, so `window` (seconds from each event
     onset) cuts rest and MI epochs alike. The .set files hold non-ASCII text, so they need
     uint16_codec='latin1'. Runs are read in file order (01-04 per phase), which is recording
     order. Epochs are cut to the window's length (448 samples for the default window).
+    `source="processed"` reads the authors' cleaned release instead (43 channels, average
+    reference, ICA); epochs that cross a cut in that data ('boundary') are dropped. The raw
+    EOG channels cannot be regressed out: in most runs they are flat or far outside the
+    physiological range (ACHIEVEMENTS.md, 2026-10-31).
     """
     import mne
 
     n_times = int(round((window[1] - window[0]) * TARGET_SFREQ))
     sides = wang2026sf_affected_side()
+    folder, pattern = WANG2026SF_SOURCES[source]
     parts, labels, metas = [], [], []
     for subject in subjects:
         X_subject, y_subject, meta_subject = [], [], []
         for phase in phases:
-            runs = sorted((RAW_DIR / "wang2026sf" / "sourcedata" / f"sub-{subject:02d}" / phase)
-                          .glob("*_original.set"))
+            runs = sorted((RAW_DIR / "wang2026sf" / folder / f"sub-{subject:02d}" / phase)
+                          .glob(pattern))
             for run_index, path in enumerate(runs):
                 raw = mne.io.read_raw_eeglab(path, preload=True, uint16_codec="latin1",
                                              verbose="error")
+                if source == "processed" and "boundary" in raw.annotations.description:
+                    # A cut joins two segments, so no epoch may span it.
+                    cuts = raw.annotations.description == "boundary"
+                    raw.annotations.duration[cuts] = 1 / raw.info["sfreq"]
+                    raw.annotations.rename({"boundary": "BAD_boundary"})
                 raw.set_channel_types({ch: ("ecg" if ch == "ECG" else "eog")
                                        for ch in ("ECG", "HEOR", "HEOL", "VEOU", "VEOL")
                                        if ch in raw.ch_names}, verbose="error")

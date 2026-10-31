@@ -36,6 +36,43 @@ only.
 
 ## Log
 
+### 2026-10-31 · S3 artifact check on the authors' ICA-cleaned release (dev)
+
+`scripts/s3_processed_check.py`. Results in `results/summary/s3_processed_check_dev.csv`.
+- **Why the authors' release:** the raw EOG channels cannot be regressed out of the EEG.
+  - In most runs they are flat (0 µV) or far outside the physiological range (hundreds to
+    thousands of µV after 1–40 Hz filtering).
+  - They rarely correlate with Fp1/Fp2 (scan of all 16 dev patients). MNE's EOG regression
+    fails on them (singular matrix).
+- **The release:** 43 channels, average reference, ICA, artifact segments cut out. Some
+  patients lose trials (e.g. 48 of 80 epochs remain for patient 21).
+- **Setup:** the same decoders on both versions, each on its own trials, 42 common channels.
+  k = 5 shown (own / pooled):
+
+| Decoder | Raw recordings | Cleaned release | Cleaned: pooled − own |
+|---|---|---|---|
+| frontal 1–8 Hz (eye control) | 77.3 / 77.2 % | **55.2 / 58.2 %** | |
+| posterior 8–30 Hz (PO row) | 71.7 / 72.2 % | 72.2 / 72.8 % | |
+| motor 8–30 Hz (the confirmed decoder) | 81.7 / 84.0 % | 83.6 / 84.0 % | **+0.4** (median 0, 5/5) |
+| motor mu/low-beta/high-beta bank (H-R2) | 83.4 / 86.6 % | 84.1 / 86.0 % | +1.9 (median +1.5, p 0.020, 9/1) |
+| motor fb4 (with theta) | 84.0 / 87.0 % | 83.7 / 86.6 % | +2.9 (median +2.9, p 0.012, 12/1) |
+
+- **The motor decoders are not eye-driven.** Cleaning removes the eye signal (frontal
+  control 77 → 55–58 %), yet motor decoding stays at 84–87 %.
+- **On cleaned data the single-band pooled decoder loses its edge at k = 5.** Cleaning raises
+  the own decoder (81.7 → 83.6 %) while pooled stays at 84.0 %.
+  - On raw data, part of the pooling benefit may therefore be robustness to artifacts in the
+    few calibration trials.
+- **With the band bank, pooling still helps on cleaned data:**
+  - bank: +1.9 over own (p 0.020); +2.0 over the single-band pooled decoder (p 0.037)
+  - fb4: +2.9 over own; +2.5 over the single-band pooled decoder (p 0.007)
+  - So theta's contribution is not just eye activity, which ICA removed.
+- Posterior alpha still separates rest from imagery after cleaning (72 %): visual or
+  attentional, not ocular.
+- **For the paper:** report the confirmed result as obtained on raw recordings, and this check
+  as its main limitation. The band-bank pooled decoder (H-R2) is the version that is robust to
+  cleaning.
+
 ### 2026-10-31 · S3 sweep repeated on the dev patients' post-treatment sessions (dev, exploratory)
 
 `scripts/s3_sweep.py --phase post`. Results in `results/summary/s3_sweep_post_dev.csv`.
