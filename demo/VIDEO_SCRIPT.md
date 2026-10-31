@@ -21,6 +21,6 @@ enough for one recording.
 | 1:50–2:00 | Repository page | "Everything is open: the benchmark code, the pre-registration history and this real-time system." |
 
 **Accuracy caveats for the narration:**
-- The 77 → 81 % figure is the mean over the 8 locked-test patients (one-sided p = 0.035).
+- The 77 → 81 % figure is the mean over the 8 locked-test patients (one-sided p = 0.047).
 - The single patient on screen can do better or worse than that.
 - The replay runs at ×4. Say "about 20 milliseconds of processing", not "real time at ×4".

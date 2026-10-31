@@ -15,9 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
-from hemishift.eval.stats import chance_threshold
+from hemishift.eval.stats import chance_threshold, clean_differences, signed_rank_p
 from hemishift.paths import CONFIG_DIR, RESULTS_DIR
 
 
@@ -58,9 +57,8 @@ def main():
 
     for k in s3.KS:
         t = table[table["k"] == k]
-        diff = t["pooled"] - t["own"]
-        nonzero = diff[diff != 0]
-        p = stats.wilcoxon(nonzero, alternative="greater").pvalue if len(nonzero) else float("nan")
+        diff = clean_differences(t["pooled"] - t["own"])
+        p = signed_rank_p(diff, "greater")
         threshold = 100 * chance_threshold(80 - 2 * k)
         label = "PRIMARY" if k == 5 else "secondary"
         print(f"\nk = {k} ({label}): own {t['own'].mean():.1f} % | pooled {t['pooled'].mean():.1f} % | "

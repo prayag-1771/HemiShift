@@ -24,8 +24,8 @@ then tests them on hospitals they have never seen.
 
 | Finding | Result | Status |
 |---|---|---|
-| Pooling other patients' data into a re-centred Riemannian decoder, 5 calibration pairs (S3) | 77.1 → **81.4 %** (+4.3); 7 of 8 patients helped; matches own decoder at 10 pairs | **Confirmed on the locked test** (pre-registered, p = 0.035) |
-| The same pooling on a new cohort (S4, 27 patients) | 69.1 → 70.8 % (+1.6); 14 helped, 6 harmed | **Confirmed** (pre-registered replication, p = 0.018) |
+| Pooling other patients' data into a re-centred Riemannian decoder, 5 calibration pairs (S3) | 77.1 → **81.4 %** (+4.3); 7 of 8 patients helped; matches own decoder at 10 pairs | **Confirmed on the locked test** (pre-registered, p = 0.047 after a tie correction; first logged as 0.035) |
+| The same pooling on a new cohort (S4, 27 patients) | 69.1 → 70.8 % (+1.6); 14 helped, 6 harmed | **Confirmed** (pre-registered replication, p = 0.019) |
 | Pooled decoder with a mu / low-beta / high-beta band bank (S4) | 70.8 → **73.1 %** (+2.3 over pooled, +4.0 over own) | **Confirmed** (pre-registered, Holm p = 0.021) |
 | A returning patient's own earlier sessions as donors (S4 post and follow-up) | 67.4 → 70.7 % (+3.2); +5.4 at follow-up | **Confirmed** (pre-registered, Holm p = 0.005) |
 | No labelled calibration for a returning patient: earlier sessions' decoder only (S4) | 69.7 % with no labels vs 67.4 % with 5 labelled pairs | **Confirmed non-inferior** (margin 2 points, Holm p = 0.021) |

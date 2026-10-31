@@ -33,12 +33,10 @@ import pandas as pd
 from pyriemann.utils.base import invsqrtm
 from pyriemann.utils.mean import mean_riemann
 from pyriemann.utils.tangentspace import tangent_space
-from scipy import stats
-
 from hemishift.data.channels import EXTENDED_TEMPLATE
 from hemishift.data.loaders import load_moabb_epochs, moabb_cohort
 from hemishift.data.splits import calibration_split
-from hemishift.eval.stats import chance_threshold, holm
+from hemishift.eval.stats import chance_threshold, clean_differences, holm, signed_rank_p
 from hemishift.paths import HARMONISED_DIR, RESULTS_DIR
 
 
@@ -239,14 +237,13 @@ def descriptive_rows(X59):
 
 
 def one_sided(diff):
-    """One-sided Wilcoxon signed-rank p for median(diff) > 0 (zeros dropped)."""
-    diff = np.asarray(diff, dtype=float)
-    nonzero = diff[diff != 0]
-    return stats.wilcoxon(nonzero, alternative="greater").pvalue if nonzero.size else 1.0
+    """One-sided Wilcoxon signed-rank p for median(diff) > 0, zeros dropped, floating-point
+    noise removed first (stats.clean_differences)."""
+    return signed_rank_p(diff, "greater")
 
 
 def describe(label, a, b, t):
-    diff = (t[a] - t[b]).to_numpy()
+    diff = clean_differences(t[a] - t[b])
     boot = np.random.default_rng(0).choice(diff, size=(10_000, len(diff))).mean(axis=1)
     low, high = np.percentile(boot, [2.5, 97.5])
     above = {m: int(sum(acc >= 100 * chance_threshold(n) for acc, n in zip(t[m], t["n_test"])))
@@ -258,12 +255,21 @@ def describe(label, a, b, t):
 
 
 def main():
-    sessions = {ph: load_patients(ph) for ph in SESSIONS}
-    print({ph: len(p) for ph, p in sessions.items()}, "patients per session")
-    C = {ph: {s: s3.premise.covariances(X) for s, (X, _) in data.items()}
-         for ph, data in sessions.items()}
-    table = pd.DataFrame(pooling_rows(sessions["pre"], C["pre"]) + cross_session_rows(sessions, C))
-    table.to_csv(OUT, index=False)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stats-only", action="store_true",
+                        help="recompute the statistics from the saved per-patient results")
+    args = parser.parse_args()
+    if args.stats_only:
+        table = pd.read_csv(OUT)
+    else:
+        sessions = {ph: load_patients(ph) for ph in SESSIONS}
+        print({ph: len(p) for ph, p in sessions.items()}, "patients per session")
+        C = {ph: {s: s3.premise.covariances(X) for s, (X, _) in data.items()}
+             for ph, data in sessions.items()}
+        table = pd.DataFrame(pooling_rows(sessions["pre"], C["pre"]) + cross_session_rows(sessions, C))
+        table.to_csv(OUT, index=False)
 
     pool = table[table["analysis"] == "pooling"]
     later = table[table["analysis"] == "cross_session"]
@@ -305,8 +311,11 @@ def main():
                      later[(later["k"] == k) & (later["session"] == target)])
 
     print("\n=== descriptive: larger S3 variants and confound controls (pre session) ===")
-    extra = pd.DataFrame(descriptive_rows(load_patients("pre", sweep.ALL59)))
-    extra.to_csv(OUT_DESCRIPTIVE, index=False)
+    if args.stats_only:
+        extra = pd.read_csv(OUT_DESCRIPTIVE)
+    else:
+        extra = pd.DataFrame(descriptive_rows(load_patients("pre", sweep.ALL59)))
+        extra.to_csv(OUT_DESCRIPTIVE, index=False)
     for k in KS:
         reference = pool[pool["k"] == k].set_index("subject")["pooled"]
         for name in ("fb4_14ch", "bank_59ch"):

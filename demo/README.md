@@ -8,7 +8,7 @@ amplifiers use, and decoded live in the browser.
    - the **patient's own decoder**, trained on the calibration trials only;
    - **HemiShift pooled**, the same calibration plus 1,282 epochs from 16 other stroke
      patients, re-centred so different people and sessions line up. On the 8 locked-test
-     patients this beat the own decoder at 5 calibration pairs: 81.4 vs 77.1 %, p = 0.035,
+     patients this beat the own decoder at 5 calibration pairs: 81.4 vs 77.1 %, p = 0.047,
      pre-registered and run once.
 3. After calibration, a **safety gate** checks, from the calibration trials alone, whether a
    decoder is reliable enough to give feedback. If not, it says so instead of guessing.

@@ -30,7 +30,7 @@ from hemishift.data.channels import EXTENDED_TEMPLATE
 from hemishift.data.harmonise import TARGET_SFREQ
 from hemishift.data.loaders import load_wang2026sf_epochs, wang2026sf_affected_side
 from hemishift.data.splits import blocked_folds
-from hemishift.eval.stats import holm
+from hemishift.eval.stats import holm, signed_rank_p
 from hemishift.models.pooling import recentre_by_domain
 from hemishift.paths import RESULTS_DIR
 
@@ -147,10 +147,10 @@ def main():
                      "split_half": float(direction(T_p[s][odd], y[odd]) @ direction(T_p[s][even], y[even]))})
     align = pd.DataFrame(rows)
     align.to_csv(SUMMARY / "s3_neuro_alignment.csv", index=False)
-    w = stats.wilcoxon(align.cos_patients, align.cos_healthy)
+    p_align = signed_rank_p(align.cos_patients - align.cos_healthy)
     print("\n2. Cosine between each patient's MI-vs-rest direction and the pooled direction of")
     print(f"   healthy donors {align.cos_healthy.median():.2f} | other patients {align.cos_patients.median():.2f} "
-          f"(Wilcoxon p {w.pvalue:.4f}; higher for patients in {(align.cos_patients > align.cos_healthy).sum()}/{len(align)}) "
+          f"(Wilcoxon p {p_align:.4f}; higher for patients in {(align.cos_patients > align.cos_healthy).sum()}/{len(align)}) "
           f"| split-half within patient {align.split_half.median():.2f}")
 
     # 3. Longitudinal
@@ -171,13 +171,13 @@ def main():
         f"{p} {wide[p].mean():.1f} % (n {wide[p].notna().sum()})" for p in ("pre", "post", "follow")))
     for a, b in (("pre", "post"), ("pre", "follow"), ("post", "follow")):
         both = wide[[a, b]].dropna()
-        r = stats.wilcoxon(both[b], both[a])
-        print(f"   {b} - {a}: mean {(both[b] - both[a]).mean():+.1f} points, Wilcoxon p {r.pvalue:.3f} (n {len(both)})")
+        print(f"   {b} - {a}: mean {(both[b] - both[a]).mean():+.1f} points, Wilcoxon p "
+              f"{signed_rank_p(both[b] - both[a]):.3f} (n {len(both)})")
     for column in ("erd_C3", "erd_C4"):
         wide_erd = longitudinal.pivot(index="subject", columns="phase", values=column)
         both = wide_erd[["pre", "post"]].dropna()
         print(f"   mu ERD {column[-2:]}: pre {100 * both.pre.mean():+.1f} %, post {100 * both.post.mean():+.1f} % "
-              f"(Wilcoxon p {stats.wilcoxon(both.post, both.pre).pvalue:.3f})")
+              f"(Wilcoxon p {signed_rank_p(both.post - both.pre):.3f})")
 
 
 if __name__ == "__main__":

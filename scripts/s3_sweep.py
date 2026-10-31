@@ -379,9 +379,15 @@ def nested(table, names, k):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase", default="pre", choices=("pre", "post", "follow"))
+    parser.add_argument("--stats-only", action="store_true",
+                        help="recompute the report from the saved per-patient results")
     args = parser.parse_args()
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     out = RESULTS_DIR / "summary" / f"s3_sweep_{args.phase}_dev.csv"
+    if args.stats_only:
+        table = pd.read_csv(out)
+        report(table, [c for c in table.columns if c not in ("subject", "k")], out)
+        return
 
     started = time.time()
     X14 = load("dev", args.phase, EXTENDED_TEMPLATE, WINDOWS["std"])
@@ -412,10 +418,15 @@ def main():
 
     table = pd.DataFrame(rows)
     table.to_csv(out, index=False)
+    report(table, list(decoders), out)
+    print(f"({time.time() - started:.0f} s)")
+
+
+def report(table, names, out):
     same = (table["pooled"] == table["pooled_14ch_std_830"]).mean()
     print(f"\nsanity: generic pooled equals the confirmed pooled_proba in {100 * same:.0f} % of rows")
 
-    fixed = [n for n in decoders if n not in ("pooled", "pooled_14ch_std_830") + CONTROLS + ONLINE]
+    fixed = [n for n in names if n not in ("pooled", "pooled_14ch_std_830") + CONTROLS + ONLINE]
     print("\n=== fixed calibration (protocol P3) ===")
     compare(table, fixed)
     print("\n=== online adaptation over the session (same test epochs) ===")
@@ -430,7 +441,7 @@ def main():
         print(f"k = {k}: selected {scores.mean():.1f} % vs pooled {t['pooled'].mean():.1f} % "
               f"(median {100 * r['median_diff']:+.1f}, p {r['p']:.3f}); picks "
               f"{pd.Series(picks).value_counts().to_dict()}")
-    print(f"results in {out} ({time.time() - started:.0f} s)")
+    print(f"results in {out}")
 
 
 if __name__ == "__main__":

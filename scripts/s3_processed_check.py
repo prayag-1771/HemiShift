@@ -103,11 +103,19 @@ def evaluate(data, source):
 
 
 def main():
-    data = {source: load(source) for source in ("raw", "processed")}
-    print("epochs per patient, raw vs processed:",
-          {s: (len(data["raw"][s][1]), len(data["processed"][s][1])) for s in data["raw"]})
-    table = pd.DataFrame(evaluate(data["raw"], "raw") + evaluate(data["processed"], "processed"))
-    table.to_csv(OUT, index=False)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stats-only", action="store_true",
+                        help="recompute the report from the saved per-patient results")
+    if parser.parse_args().stats_only:
+        table = pd.read_csv(OUT)
+    else:
+        data = {source: load(source) for source in ("raw", "processed")}
+        print("epochs per patient, raw vs processed:",
+              {s: (len(data["raw"][s][1]), len(data["processed"][s][1])) for s in data["raw"]})
+        table = pd.DataFrame(evaluate(data["raw"], "raw") + evaluate(data["processed"], "processed"))
+        table.to_csv(OUT, index=False)
     for k in sweep.KS:
         print(f"\nk = {k} (16 dev patients): own / pooled, raw -> authors' cleaned release")
         base = {src: table[(table["source"] == src) & (table["variant"] == "motor14_830")

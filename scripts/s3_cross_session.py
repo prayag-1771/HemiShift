@@ -69,6 +69,15 @@ def donor_only(C_ref, C_test, donor_C, donor_y):
 
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stats-only", action="store_true",
+                        help="recompute the report from the saved per-patient results")
+    report(pd.read_csv(OUT) if parser.parse_args().stats_only else run())
+
+
+def run():
     sessions = {phase: sweep.load("dev", phase, EXTENDED_TEMPLATE, sweep.WINDOWS["std"])
                 for phase in ("pre", "post", "follow")}
     C = {phase: {s: s3.premise.covariances(X) for s, (X, _) in data.items()}
@@ -104,7 +113,10 @@ def main():
                 flush=True)
     table = pd.DataFrame(rows)
     table.to_csv(OUT, index=False)
+    return table
 
+
+def report(table):
     names = ["others", "previous", "previous+others", "previous_zero"]
     for target, _ in TARGETS:
         for k in s3.KS:

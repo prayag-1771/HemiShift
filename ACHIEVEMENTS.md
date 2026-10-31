@@ -36,11 +36,49 @@ only.
 
 ## Log
 
+### 2026-10-31 · CORRECTION: floating-point ties in the Wilcoxon tests; p-values recomputed
+
+- **The error:**
+  - Accuracy differences that are equal in exact arithmetic (e.g. four patients each gaining
+    1 of 70 test trials) came out of floating point a few ulps apart. scipy then ranked them
+    apart instead of as ties.
+  - True zeros between two-session means (S4 H-R3, H-R4) survived as ±1e-15 and counted as
+    tiny gains or losses.
+  - Found while checking that figure 7's p-value matched the S4 log.
+- **The fix:**
+  - `stats.clean_differences` rounds paired differences to 1e-9 before ranking. Every
+    Wilcoxon test now goes through `stats.signed_rank_p`.
+  - A unit test pins the S3 locked-test case to the exact 12/256.
+  - `scripts/recheck_stats.py` and the scripts' `--stats-only` modes recompute every logged
+    value from the saved per-patient results. No decoder was re-run.
+
+| Confirmatory test | Logged | Corrected | Verdict |
+|---|---|---|---|
+| S3 locked test, pooled > own, k = 5 (pre-registered) | 0.035 | **0.047** | still confirmed (< 0.05), with less margin |
+| S3 locked test, k = 10 (secondary) | 0.14 | 0.17 | not significant, as before |
+| S1 locked test, ens16 | 0.083 | 0.083 | unchanged |
+| S4 H-R1 | 0.018 | 0.019 | confirmed |
+| S4 H-R2 | 0.012 (Holm 0.021) | 0.011 (Holm 0.021) | confirmed |
+| S4 H-R3 | 0.0016 (Holm 0.005); 16 helped / 5 harmed | 0.0015 (Holm 0.0045); 15 / 4 | confirmed |
+| S4 H-R4 | 0.010 (Holm 0.021) | 0.010 (Holm 0.021) | confirmed |
+| S3 locked-test sensitivity (six tests) | | unchanged | |
+
+- **Development values quoted in the paper:**
+  - S3 dev pooling: k = 5 p 0.004 → 0.003 (Holm 0.018 → 0.012); k = 10 0.16 → 0.20.
+  - S1 ens16 dev: 0.011 → 0.012 (Holm 0.12 → 0.13).
+  - S1 block re-centring: 0.021 → 0.016.
+  - S1 zero-shot: 0.017 → 0.015.
+  - LesionSim nested vs identity: 0.80 → 0.86.
+  - SafeTransfer gate vs always transferring (two-sided): 0.033 → 0.032; k = 10 still 0.001.
+- **Today's dev entries** (sweep, cross-session, cleaned release) were recomputed and are
+  corrected in place below. No conclusion changes.
+
 ### 2026-10-31 · RESULT (confirmed): S4 Liu2025 replication; all four pre-registered hypotheses hold
 
 `scripts/s4_replication.py`, run once after the download, as pre-registered (d0800e8,
 amended in 0d9b750, 34f0e28 and 494d526). Results in `results/summary/s4_replication.csv` and
-`results/summary/s4_descriptive.csv`.
+`results/summary/s4_descriptive.csv`. The p-values and counts below are tie-corrected (see the
+correction above).
 - **Data:** 27 patients, gait MI vs idle, the confirmed S3 code unchanged.
 - **Exclusions, as pre-registered:**
   - The post and follow-up sessions of patients 3, 6, 8 and 11 are not in the release
@@ -50,9 +88,9 @@ amended in 0d9b750, 34f0e28 and 494d526). Results in `results/summary/s4_replica
 
 | | Comparison (k = 5) | Patients | Result | One-sided p | Holm | Verdict |
 |---|---|---|---|---|---|---|
-| H-R1 | pooled vs own, pre session | 27 | 70.8 vs 69.1 % (+1.6, 95 % CI +0.2 to +3.1; 14 helped / 6 harmed) | 0.018 | gatekeeper | **CONFIRMED** |
-| H-R2 | band-bank pooled vs pooled, pre session | 27 | 73.1 vs 70.8 % (+2.3, CI +0.5 to +4.1; 17/6) | 0.012 | 0.021 | **CONFIRMED** |
-| H-R3 | own earlier sessions vs own, later sessions | 23 | 70.7 vs 67.4 % (+3.2, CI +1.5 to +5.1; 16/5) | 0.0016 | 0.005 | **CONFIRMED** |
+| H-R1 | pooled vs own, pre session | 27 | 70.8 vs 69.1 % (+1.6, 95 % CI +0.2 to +3.1; 14 helped / 6 harmed) | 0.019 | gatekeeper | **CONFIRMED** |
+| H-R2 | band-bank pooled vs pooled, pre session | 27 | 73.1 vs 70.8 % (+2.3, CI +0.5 to +4.1; 17/6) | 0.011 | 0.021 | **CONFIRMED** |
+| H-R3 | own earlier sessions vs own, later sessions | 23 | 70.7 vs 67.4 % (+3.2, CI +1.5 to +5.1; 15/4) | 0.0015 | 0.0045 | **CONFIRMED** |
 | H-R4 | no-label earlier-session decoder vs own, margin 2 points | 23 | 69.7 vs 67.4 % (+2.3, CI −1.2 to +5.7; 15/7) | 0.010 | 0.021 | **CONFIRMED** (non-inferior) |
 
 - **Pooling replicates on a new cohort, a new limb and a new trial design.** The trials here
@@ -135,7 +173,8 @@ release keeps 52–80 epochs per patient.
   - On raw data, part of the pooling benefit may therefore be robustness to artifacts in the
     few calibration trials.
 - **With the band bank, pooling still helps on cleaned data:**
-  - bank: +1.9 over own (p 0.020); +2.0 over the single-band pooled decoder (p 0.037)
+  - bank: +1.9 over own (p 0.020); +2.0 over the single-band pooled decoder (p 0.034,
+    tie-corrected)
   - fb4: +2.9 over own; +2.5 over the single-band pooled decoder (p 0.007)
   - So theta's contribution is not just eye activity, which ICA removed.
 - Posterior alpha still separates rest from imagery after cleaning (72 %): visual or
@@ -153,14 +192,14 @@ release keeps 52–80 epochs per patient.
 
 | Variant (vs pooled) | pre, k = 5 | post, k = 5 | post, k = 10 |
 |---|---|---|---|
-| 59 channels + mu/beta/8–30 bank | +2.5 | **+4.8** (p 0.006; 12/2) | +3.2 |
-| fb4 (theta, mu, low and high beta), 14 channels | +3.0 | +3.7 (p 0.004; 13/2) | +3.1 (p 0.001, Holm 0.023) |
-| fb4 without theta (H-R2's decoder) | +2.6 | +1.1 (p 0.25) | +1.6 (p 0.018) |
-| co-adaptive pooled (online protocol) | +4.6 | +3.8 (Holm 0.023) | +2.0 |
+| 59 channels + mu/beta/8–30 bank | +2.5 | **+4.8** (p 0.007; 12/2) | +3.2 |
+| fb4 (theta, mu, low and high beta), 14 channels | +3.0 | +3.7 (p 0.004; 13/2) | +3.1 (p 0.001, Holm 0.039) |
+| fb4 without theta (H-R2's decoder) | +2.6 | +1.1 (p 0.32) | +1.6 (p 0.046) |
+| co-adaptive pooled (online protocol) | +4.6 | +3.8 (Holm 0.027) | +2.0 |
 
 - **The ranking replicates across sessions.** Band banks and more channels lead in both.
   Donor weighting, donor selection, stretching, ensembles and mixup do nothing in either.
-- **Honest selection now gains:** 85.1 vs 82.1 % at k = 5 (median +2.1, p 0.014). The
+- **Honest selection now gains:** 85.1 vs 82.1 % at k = 5 (median +2.1, p 0.020). The
   59-channel bank is picked in 14 of 16 folds.
 - **But the larger gains lean on bands and channels outside the motor signal.**
   - Theta matters more in the post session: fb4 gains +3.7, but only +1.1 without theta.
@@ -228,8 +267,8 @@ decoder in 100 % of rows (own 81.7 %, pooled 84.0 % at k = 5).
 
 | Idea | Best at k = 5 | vs pooled 84.0 % |
 |---|---|---|
-| Filter bank | fb4 (theta, mu, low beta, high beta): 87.0 % | +3.0 (median +1.4, p 0.062; 9 helped / 3 harmed) |
-| More channels | 59 channels + mu/beta/8–30 bank: 86.5 % | +2.5 (p 0.16) |
+| Filter bank | fb4 (theta, mu, low beta, high beta): 87.0 % | +3.0 (median +1.4, p 0.083; 9 helped / 3 harmed) |
+| More channels | 59 channels + mu/beta/8–30 bank: 86.5 % | +2.5 (p 0.18) |
 | Single bands | beta 85.9 %; mu 79.2 % | +2.0; −4.7 (Holm 0.045) |
 | Longer window (0.5–5.5 s) | no effect | factor means 85.3 vs 85.2 % |
 | Donor weight 0.5–8 ×, LR C | −0.7 to +0.8; C = 0.1 hurts (−1.9) | |
@@ -239,7 +278,7 @@ decoder in 100 % of rows (own 81.7 %, pooled 84.0 % at k = 5).
 
 - **No fixed-calibration variant survives Holm** over the 31 comparisons.
 - **Honest "pick the best" estimate** (leave-one-patient-out selection):
-  - k = 5: 85.8 % vs 84.0 % (median +1.4, p 0.19). fb4 is picked in 14 of 16 folds.
+  - k = 5: 85.8 % vs 84.0 % (median +1.4, p 0.22). fb4 is picked in 14 of 16 folds.
   - k = 10: +0.5.
 - **Factor means over the 12 structure combinations (k = 5):**
   - 14 / 28 / 59 channels: 84.7 / 85.3 / 85.7 %
@@ -248,10 +287,10 @@ decoder in 100 % of rows (own 81.7 %, pooled 84.0 % at k = 5).
 - **Online adaptation is the only clear gain.**
   - Refitting after every pair with its cue label (co-adaptive calibration, a known technique)
     gives 88.6 % pooled and 88.5 % own: +4.6 and +4.5 over the fixed pooled decoder (Holm
-    0.010 and 0.029; 12/1 and 9/1).
+    0.012 and 0.029; 12/1 and 9/1).
   - Pooling adds nothing once the decoder adapts. This is a different protocol: each trial's
     label is used after the trial is decoded.
-  - Unsupervised running re-centring: 85.7 % (+1.7, p 0.039).
+  - Unsupervised running re-centring: 85.7 % (+1.7, p 0.062).
 
 ### 2026-10-31 · S3 cross-session transfer: the patient's own earlier session as a donor (dev, exploratory)
 
@@ -269,10 +308,10 @@ decoder in 100 % of rows (own 81.7 %, pooled 84.0 % at k = 5).
 
 | Target, k | own | others | previous | previous + others | previous_zero (no labels) |
 |---|---|---|---|---|---|
-| post, 5 (16 patients) | 80.7 % | 82.1 % (p 0.10) | 82.3 % (p 0.023, 7/1) | 82.8 % (p 0.044) | 81.3 % (p 0.35) |
-| post, 10 | 84.0 % | 84.3 % | 84.8 % | 84.8 % | 81.4 % (−2.6, p 0.044) |
-| follow-up, 5 (13 patients) | 77.9 % | 82.9 % (p 0.045) | 82.6 % (p 0.010, Holm 0.039; 9/1) | 84.2 % (p 0.021) | **84.5 %** (p 0.020) |
-| follow-up, 10 | 82.3 % | 85.6 % (p 0.11) | 86.0 % (p 0.008, Holm 0.031; 8/0) | **87.6 %** (p 0.014, Holm 0.041) | 85.4 % (p 0.086) |
+| post, 5 (16 patients) | 80.7 % | 82.1 % (p 0.092) | 82.3 % (p 0.047, 7/1) | 82.8 % (p 0.042) | 81.3 % (p 0.41) |
+| post, 10 | 84.0 % | 84.3 % | 84.8 % | 84.8 % | 81.4 % (−2.6, p 0.037) |
+| follow-up, 5 (13 patients) | 77.9 % | 82.9 % (p 0.035) | 82.6 % (p 0.008, Holm 0.031; 9/1) | 84.2 % (p 0.021) | **84.5 %** (p 0.020) |
+| follow-up, 10 | 82.3 % | 85.6 % (p 0.12) | 86.0 % (p 0.008, Holm 0.031; 8/0) | **87.6 %** (p 0.016, Holm 0.047) | 85.4 % (p 0.095) |
 
 p-values are two-sided Wilcoxon vs own; Holm is over the four donor options within each row.
 - **The patient's own earlier sessions help, most at follow-up,** months after the first
@@ -503,6 +542,9 @@ the 16 dev patients as donors. Results in `results/summary/s3_locked_test.csv`.
 |---|---|---|---|---|---|
 | **k = 5 (primary)** | 77.1 % | **81.4 %** | **+4.3 points** | 7 / 1 | **p = 0.035** |
 | k = 10 (secondary) | 79.5 % | 81.6 % | +2.1 points | 5 / 1 | p = 0.14 |
+
+**Corrected 2026-10-31 (floating-point ties, see the correction entry):** p = 0.047 at k = 5
+and 0.17 at k = 10. Still confirmed at α = 0.05, with less margin than first logged.
 
 - **The pre-registered hypothesis is CONFIRMED.** With 5 calibration pairs, pooling other
   patients' data in a re-centred Riemannian decoder beats the patient's own decoder on

@@ -7,6 +7,9 @@ Writes paper/figures/fig{1..6}_*.pdf (and .png previews).
   fig4  SafeTransfer gate: patients harmed and mean accuracy
   fig5  S1 left vs right: selection inflation, window ensemble, calibration screening
   fig6  Neurophysiology: ERD maps, donor-direction alignment, longitudinal decodability
+  fig7  S4 pre-registered replication: pooling, band bank, earlier sessions, no labels
+  fig8  S3 sweep gains in two sessions, artifact controls before and after ICA cleaning,
+        and the locked-test sensitivity analysis on cleaned data
 
 Usage: .venv/Scripts/python -I scripts/make_figures.py
 """
@@ -25,6 +28,7 @@ SUMMARY = RESULTS_DIR / "summary"
 OUT = ROOT / "paper" / "figures"
 OWN, POOLED, HEALTHY, LESION, GENERIC, DEEP, PATIENT = (
     "#8c96a8", "#2563eb", "#d97706", "#7c3aed", "#9ca3af", "#0f766e", "#2563eb")
+BANK, PREVIOUS = "#059669", "#db2777"
 plt.rcParams.update({
     "font.size": 8, "axes.titlesize": 8.5, "axes.labelsize": 8, "legend.fontsize": 7,
     "xtick.labelsize": 7, "ytick.labelsize": 7, "pdf.fonttype": 42, "ps.fonttype": 42,
@@ -74,8 +78,8 @@ def fig1():
            f"a  Development, k = 5 (n = {len(d5)})")
     paired(axes[1], t5["own"], t5["pooled"], ["own", "pooled"], (OWN, POOLED),
            f"b  Locked test, k = 5 (n = {len(t5)})")
-    axes[1].text(0.5, 0.02, "pre-registered, run once\none-sided Wilcoxon p = 0.035", transform=axes[1].transAxes,
-                 ha="center", va="bottom", fontsize=6.5, color="#374151")
+    axes[1].text(0.5, 0.02, f"pre-registered, run once\none-sided Wilcoxon p = {one_sided(t5['pooled'] - t5['own']):.3f}",
+                 transform=axes[1].transAxes, ha="center", va="bottom", fontsize=6.5, color="#374151")
     for ax in axes[:2]:
         ax.set_ylabel("held-out accuracy (%)")
         ax.set_ylim(48, 101)
@@ -225,8 +229,12 @@ def fig5():
     ax.set_ylim(15, 106)
     ax.set_ylabel("accuracy (%)")
     ax.set_title("b  Window ensemble")
-    ax.text(0.5, 18, "p = 0.011", ha="center", fontsize=6.3, color="#374151")
-    ax.text(2.8, 18, "p = 0.083 (one-sided,\npre-registered)", ha="center", fontsize=6.3, color="#374151")
+    from hemishift.eval.stats import paired_comparison
+
+    p_dev = paired_comparison(classical["ens16"] / 100, classical["base"] / 100)["p"]
+    ax.text(0.5, 18, f"p = {p_dev:.3f}", ha="center", fontsize=6.3, color="#374151")
+    ax.text(2.8, 18, f"p = {one_sided(locked['ens16'] - locked['base']):.3f} (one-sided,\npre-registered)",
+            ha="center", fontsize=6.3, color="#374151")
     ax = axes[2]
     for table, marker, label in ((screen_dev, "o", "dev"), (screen_test, "^", "locked test")):
         best = table[["cal_base", "cal_ens16"]].max(axis=1)
@@ -288,6 +296,109 @@ def fig6():
     save(fig, "fig6_neuro")
 
 
+def one_sided(diff):
+    from hemishift.eval.stats import signed_rank_p
+
+    return signed_rank_p(diff, "greater")
+
+
+def fig7():
+    from hemishift.eval.stats import holm
+
+    t = read("s4_replication")
+    pool = t[(t.analysis == "pooling") & (t.k == 5)]
+    later = t[(t.analysis == "cross_session") & (t.k == 5)]
+    per = later.groupby("subject")[["own", "previous", "previous_zero"]].mean()
+    p1 = one_sided(pool["pooled"] - pool["own"])
+    family = holm([one_sided(pool["pooled_fb"] - pool["pooled"]), one_sided(per["previous"] - per["own"]),
+                   one_sided(per["previous_zero"] - per["own"] + 2)])
+    fig, axes = plt.subplots(1, 4, figsize=(7.2, 2.6))
+    paired(axes[0], pool["own"], pool["pooled"], ["own", "pooled"], (OWN, POOLED),
+           f"a  H-R1 (n = {len(pool)})")
+    paired(axes[1], pool["pooled"], pool["pooled_fb"], ["pooled", "pooled,\nband bank"], (POOLED, BANK),
+           "b  H-R2")
+    paired(axes[2], per["own"], per["previous"], ["own", "earlier\nsessions"], (OWN, PREVIOUS),
+           f"c  H-R3 (n = {len(per)})")
+    paired(axes[3], per["own"], per["previous_zero"], ["own,\n5 pairs", "earlier,\nno labels"], (OWN, PREVIOUS),
+           "d  H-R4")
+    notes = [f"p = {p1:.3f}", f"Holm p = {family[0]:.3f}", f"Holm p = {family[1]:.3f}",
+             f"non-inferior, margin 2\nHolm p = {family[2]:.3f}"]
+    for ax, note in zip(axes, notes):
+        ax.set_ylim(38, 101)
+        ax.text(0.5, 0.02, note, transform=ax.transAxes, ha="center", va="bottom", fontsize=6.3,
+                color="#374151")
+    axes[0].set_ylabel("held-out accuracy (%), k = 5")
+    fig.suptitle("S4 (Liu2025, gait imagery vs idle): pre-registered, run once", x=0.01, ha="left",
+                 fontsize=8.5, fontweight="bold")
+    fig.tight_layout()
+    save(fig, "fig7_replication")
+
+
+SWEEP_VARIANTS = (
+    ("pooled_sup", "co-adaptive recalibration (online)"),
+    ("pooled_fb4", "band bank with theta"),
+    ("pooled_59ch_std_fb3", "59 channels + band bank"),
+    ("pooled_59ch_std_830", "59 channels"),
+    ("pooled_28ch_std_830", "28 channels"),
+    ("pooled_14ch_long_830", "window 0.5-5.5 s"),
+    ("pooled_ens9", "ensemble of 9"),
+    ("pooled_svm", "linear SVM"),
+    ("pooled_lam4", "donors weigh 4x"),
+    ("pooled_near8", "8 nearest donors"),
+    ("pooled_stretch", "Riemannian stretching"),
+    ("donor_only", "no labels (others only)"),
+)
+
+
+def fig8():
+    sessions = {"first session": read("s3_sweep_pre_dev"), "second session": read("s3_sweep_post_dev")}
+    check = read("s3_processed_check_dev")
+    locked = read("s3_locked_sensitivity")
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.9), gridspec_kw={"width_ratios": [1.45, 1, 0.95]})
+    ax = axes[0]
+    for (name, table), marker, shift in zip(sessions.items(), ("o", "s"), (-0.15, 0.15)):
+        t5 = table[table.k == 5]
+        gains = [(t5[v] - t5["pooled"]).mean() for v, _ in SWEEP_VARIANTS]
+        ax.scatter(gains, np.arange(len(SWEEP_VARIANTS)) + shift, marker=marker, s=14,
+                   color=POOLED if marker == "o" else BANK, label=name, zorder=3)
+    ax.axvline(0, color="#6b7280", lw=0.8)
+    ax.set_yticks(range(len(SWEEP_VARIANTS)), [label for _, label in SWEEP_VARIANTS], fontsize=6.3)
+    ax.invert_yaxis()
+    ax.set_xlabel("gain over the pooled decoder (points), k = 5")
+    ax.set_title("a  S3 dev sweep (16 patients)")
+    ax.legend(frameon=False, fontsize=6.2, loc="lower right")
+    ax = axes[1]
+    groups = (("motor14_830", "motor\n8-30 Hz"), ("posterior_830", "posterior\n8-30 Hz"),
+              ("frontal_1-8", "frontal\n1-8 Hz"))
+    k5 = check[check.k == 5]
+    for j, (source, color) in enumerate((("raw", "#9ca3af"), ("processed", "#111827"))):
+        means = [k5[(k5.source == source) & (k5.variant == v)]["own"].mean() for v, _ in groups]
+        ax.bar(np.arange(3) + (j - 0.5) * 0.36, means, width=0.34, color=color,
+               label="raw" if source == "raw" else "ICA-cleaned release")
+    ax.axhline(50, color="#6b7280", lw=0.8, ls=":")
+    ax.set_xticks(range(3), [label for _, label in groups])
+    ax.set_ylim(40, 100)
+    ax.set_ylabel("own decoder accuracy (%), k = 5")
+    ax.set_title("b  Artifact controls")
+    ax.legend(frameon=False, fontsize=6.2, loc="upper right", ncol=1)
+    ax = axes[2]
+    t5 = locked[locked.k == 5]
+    columns = (("own_830", "own", OWN), ("pooled_830", "pooled", POOLED), ("pooled_bank", "bank", BANK))
+    for _, row in t5.iterrows():
+        ax.plot(range(3), [row[c] for c, _, _ in columns], color="#d1d5db", lw=0.8, zorder=1)
+    for i, (c, _, color) in enumerate(columns):
+        ax.scatter(np.full(len(t5), i), t5[c], s=10, color=color, zorder=2)
+        ax.plot([i - 0.2, i + 0.2], [t5[c].mean()] * 2, color=color, lw=2.4, zorder=3)
+        ax.text(i, 103, f"{t5[c].mean():.1f}", ha="center", fontsize=6.8, color=color, fontweight="bold")
+    ax.set_xticks(range(3), [label for _, label, _ in columns])
+    ax.set_xlim(-0.5, 2.5)
+    ax.set_ylim(40, 107)
+    ax.set_ylabel("held-out accuracy (%), k = 5")
+    ax.set_title(f"c  Cleaned locked test (n = {len(t5)})")
+    fig.tight_layout(w_pad=2.0)
+    save(fig, "fig8_robustness")
+
+
 def main():
     fig1()
     fig2()
@@ -296,6 +407,10 @@ def main():
     fig5()
     if (SUMMARY / "s3_neuro_longitudinal.csv").exists():
         fig6()
+    if (SUMMARY / "s4_replication.csv").exists():
+        fig7()
+    if (SUMMARY / "s3_locked_sensitivity.csv").exists():
+        fig8()
 
 
 if __name__ == "__main__":

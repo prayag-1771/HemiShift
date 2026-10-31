@@ -15,10 +15,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from hemishift.data.channels import EXTENDED_TEMPLATE
 from hemishift.data.loaders import load_wang2026sf_epochs
+from hemishift.eval.stats import clean_differences, signed_rank_p
 from hemishift.paths import CONFIG_DIR, RESULTS_DIR
 
 
@@ -81,9 +81,8 @@ def main():
         t = table[table["k"] == k]
         for a, b in (("pooled_830", "own_830"), ("pooled_bank", "own_830"),
                      ("pooled_bank", "pooled_830")):
-            diff = t[a] - t[b]
-            nonzero = diff[diff != 0]
-            p = stats.wilcoxon(nonzero, alternative="greater").pvalue if len(nonzero) else 1.0
+            diff = clean_differences(t[a] - t[b])
+            p = signed_rank_p(diff, "greater")
             print(f"k = {k}: {a} {t[a].mean():.1f} % vs {b} {t[b].mean():.1f} % | mean diff "
                   f"{diff.mean():+.1f}, helped {(diff > 0).sum()}, harmed {(diff < 0).sum()}, "
                   f"one-sided Wilcoxon p = {p:.4f}")

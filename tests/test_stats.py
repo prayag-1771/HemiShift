@@ -3,7 +3,13 @@ import math
 import numpy as np
 import pytest
 
-from hemishift.eval.stats import chance_threshold, holm, negative_transfer_rate, paired_comparison
+from hemishift.eval.stats import (
+    chance_threshold,
+    holm,
+    negative_transfer_rate,
+    paired_comparison,
+    signed_rank_p,
+)
 
 
 @pytest.mark.parametrize(
@@ -36,6 +42,21 @@ def test_paired_comparison_detects_a_consistent_gain():
 def test_paired_comparison_identical_scores():
     result = paired_comparison([0.6, 0.7], [0.6, 0.7])
     assert result["p"] == 1.0 and result["median_diff"] == 0.0
+
+
+def test_signed_rank_p_treats_floating_point_noise_as_ties():
+    # The S3 locked test: four patients gained 1/70 of their test trials. Computed as
+    # 100 * a / 70 - 100 * b / 70, one of the four came out a few ulps larger and was ranked
+    # apart from the others, giving p = 9/256 instead of the exact 12/256.
+    own = np.array([62.857142857142854, 78.57142857142857, 91.42857142857143, 81.42857142857143,
+                    85.71428571428571, 72.85714285714286, 80.88235294117646, 64.28571428571429])
+    gain = np.array([11, 5, 1, 1, 1, 1, -1, 5])
+    test_trials = np.array([70, 70, 70, 70, 70, 70, 68, 70])
+    pooled = own + 100 * gain / test_trials
+    assert signed_rank_p(pooled - own, "greater") == pytest.approx(12 / 256)
+    # A true zero between two-session means survives as +-1e-15 unless cleaned.
+    assert signed_rank_p([(70.0 + 80.0) / 2 - (75.0 + 75.0) / 2 + 1e-15, 2.0, 3.0], "greater") == \
+        signed_rank_p([2.0, 3.0], "greater")
 
 
 def test_negative_transfer_rate_uses_two_point_margin():

@@ -33,6 +33,25 @@ def holm(p_values):
     return adjusted
 
 
+def clean_differences(diff, decimals=9):
+    """Paired differences with floating-point noise removed (rounded to 1e-9).
+
+    Accuracies are fractions of a few dozen trials, so the same true difference can come out
+    as 4.285714285714285 for one patient and 4.285714285714292 for another, and a true zero
+    (e.g. between two-session means) as +-1e-15. Unrounded, the Wilcoxon test ranks such ties
+    apart and keeps the zeros, which shifts its p-value (S3 locked test: 0.035 instead of the
+    correct 0.047; ACHIEVEMENTS.md, 2026-10-31).
+    """
+    return np.round(np.asarray(diff, dtype=float), decimals)
+
+
+def signed_rank_p(diff, alternative="two-sided"):
+    """Wilcoxon signed-rank p-value over patients, zero differences dropped."""
+    diff = clean_differences(diff)
+    nonzero = diff[diff != 0]
+    return float(stats.wilcoxon(nonzero, alternative=alternative).pvalue) if nonzero.size else 1.0
+
+
 def paired_comparison(scores_a, scores_b, n_boot=10_000, seed=0):
     """Compare two methods on the same patients (a - b).
 
@@ -44,14 +63,14 @@ def paired_comparison(scores_a, scores_b, n_boot=10_000, seed=0):
     b = np.asarray(scores_b, dtype=float)
     if a.shape != b.shape:
         raise ValueError("both methods must be scored on the same patients")
-    diff = a - b
+    diff = clean_differences(a - b)
     rng = np.random.default_rng(seed)
     boot_medians = np.median(rng.choice(diff, size=(n_boot, diff.size), replace=True), axis=1)
     ci_low, ci_high = np.percentile(boot_medians, [2.5, 97.5])
 
     nonzero = diff[diff != 0]
     if nonzero.size:
-        p_value = stats.wilcoxon(nonzero).pvalue
+        p_value = signed_rank_p(nonzero)
         ranks = stats.rankdata(np.abs(nonzero))
         rank_biserial = (ranks[nonzero > 0].sum() - ranks[nonzero < 0].sum()) / ranks.sum()
     else:

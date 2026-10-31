@@ -13,11 +13,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from hemishift.data.liu2024_raw import EXCLUDED, load_raw
 from hemishift.data.splits import blocked_folds
-from hemishift.eval.stats import chance_threshold, paired_comparison
+from hemishift.eval.stats import chance_threshold, clean_differences, paired_comparison, signed_rank_p
 from hemishift.paths import CONFIG_DIR, RESULTS_DIR
 
 _spec = importlib.util.spec_from_file_location("s1_classical",
@@ -64,8 +63,8 @@ def main():
     table = pd.DataFrame(rows)
     table.to_csv(OUT, index=False)
 
-    diff = table["ens16"] - table["base"]
-    one_sided = stats.wilcoxon(diff[diff != 0], alternative="greater").pvalue
+    diff = clean_differences(table["ens16"] - table["base"])
+    one_sided = signed_rank_p(diff, "greater")
     r = paired_comparison(table["ens16"] / 100, table["base"] / 100)
     threshold = 100 * chance_threshold(39)
     print(f"\n{len(table)} locked-test patients, blocked 4-fold CV (chance threshold {threshold:.0f} %)")
