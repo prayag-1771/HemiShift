@@ -9,7 +9,8 @@ The locked test is spent, so a gain found here needs fresh data to be confirmed.
   structure  channels (14, 28 central-strip, all 59) x window (0.5-4.0 s, or 0.5-5.5 s of the
              6 s imagery and of the 8 s rest) x band (8-30 Hz, or a mu + beta + 8-30 Hz bank
              with tangent vectors concatenated): all 12 combinations
-  bands      mu, beta, 4-30 Hz, and a 4-band bank (theta, mu, low beta, high beta)
+  bands      mu, beta, 4-30 Hz, a 4-band bank (theta, mu, low beta, high beta) and the same
+             bank without theta (added after the pre-session run; S4's H-R2 decoder)
   ensemble   mean probability over 3 bands x 3 windows (S1's ens16 idea, inside the imagery)
   weighting  donors weigh 0.5-8 times the calibration; LR regularisation C = 0.1 or 10
   donors     only the 8 nearest donors (Riemannian distance between mean covariances), or the
@@ -325,6 +326,7 @@ def candidates(d):
         "pooled_beta": lambda s, k: pooled(d, s, k, ("14_std_beta",)),
         "pooled_wide": lambda s, k: pooled(d, s, k, ("14_std_wide",)),
         "pooled_fb4": lambda s, k: pooled(d, s, k, tuple(f"14_std_{b}" for b in ("theta", "mu", "b1", "b2"))),
+        "pooled_fb3b": lambda s, k: pooled(d, s, k, tuple(f"14_std_{b}" for b in ("mu", "b1", "b2"))),
         "pooled_ens9": lambda s, k: np.mean([pooled(d, s, k, (v,)) for v in ENSEMBLE], axis=0),
         "pooled_near8": lambda s, k: pooled(d, s, k, donors=nearest(d, s, k)),
         "pooled_fit8": lambda s, k: pooled(d, s, k, donors=best_fitting(d, s, k)),

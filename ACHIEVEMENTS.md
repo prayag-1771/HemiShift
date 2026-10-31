@@ -55,8 +55,10 @@ Liu2025 EEG has been decoded; the download is still running.
   - The 2-point margin is the pre-registered negative-transfer margin.
 - **Error control (replaces "Holm over H-R1 and H-R2"):** fixed sequence. H-R1 is tested at
   α = 0.05. Only if it is confirmed are H-R2 to H-R4 tested, with Holm at α = 0.05.
-- **Descriptive only:** k = 10; earlier sessions plus other patients; a co-adaptive pooled
-  decoder (refitted after every trial with its cue label).
+- **Descriptive only:** k = 10; earlier sessions plus other patients; co-adaptive own and
+  pooled decoders (refitted after every trial with its cue label). Also, added before any S4
+  decoding: a no-label decoder from the other patients only (re-centred on the calibration
+  epochs, labels unused).
 
 ### 2026-10-31 · S3 confound check: non-motor channels also separate imagery from rest (dev)
 

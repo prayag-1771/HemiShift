@@ -15,8 +15,9 @@ H-R3: previous > own in the later sessions, k = 5 (each patient's mean over post
 H-R4: previous_zero >= own - 2 points in the later sessions, k = 5 (non-inferiority).
 All one-sided Wilcoxon signed-rank over patients. Fixed sequence: H-R1 at alpha = 0.05; only
 if it is confirmed, H-R2 to H-R4 with Holm at alpha = 0.05.
-Descriptive only: k = 10, previous + other patients, and co-adaptive own and pooled decoders
-(refitted before every test trial on all earlier labelled trials).
+Descriptive only: k = 10, previous + other patients, a no-label decoder from the other
+patients (re-centred on the calibration epochs, labels unused), and co-adaptive own and
+pooled decoders (refitted before every test trial on all earlier labelled trials).
 
 Usage: .venv/Scripts/python -I scripts/s4_replication.py
 """
@@ -149,6 +150,8 @@ def pooling_rows(patients, C):
                 "pooled_fb": accuracy(fb_pooled_proba(Cb[s], y, cal, test,
                                                       np.vstack([Tb[o] for o in others]), donor_y),
                                       y[test]),
+                "donor_only": accuracy(cross.donor_only(C[s][cal], C[s][test], donor_C, donor_y),
+                                       y[test]),
                 "own_coadaptive": accuracy(coadaptive_proba(C[s], y, cal, test), y[test]),
                 "pooled_coadaptive": accuracy(coadaptive_proba(
                     C[s], y, cal, test, np.vstack([T830[o] for o in others]), donor_y), y[test]),
@@ -250,6 +253,7 @@ def main():
         t = pool[pool["k"] == k]
         describe("pre", "pooled", "own", t)
         describe("pre", "pooled_fb", "pooled", t)
+        describe("pre (descriptive): no labels, other patients only", "donor_only", "own", t)
         describe("pre (descriptive)", "own_coadaptive", "own", t)
         describe("pre (descriptive)", "pooled_coadaptive", "pooled", t)
         t = per_patient.loc[k]
