@@ -36,6 +36,21 @@ only.
 
 ## Log
 
+### 2026-11-01 · DECLARED BEFORE RUNNING: combination study, round 2
+
+- **Why:** in round 1 on S3 (S4 still running), the best decoder without labels during the
+  session was a static stack: earlier sessions + other patients, 28 channels. Separately,
+  unsupervised re-centring added about 1.6 points to the pooled bank. Round 1 never combined
+  the two.
+- **New decoders** (both cohorts, same protocol):
+  - `pooled_unsup_bank28`: `pooled_unsup_bank` on 28 channels.
+  - `prevoth_unsup_bank` and `prevoth_unsup_bank28`: earlier sessions + other patients,
+    labels from the calibration only, re-centred on every epoch seen so far.
+  - `prevothzero_bank28` and `prevothzero_unsup_bank28`: no patient labels at all (earlier
+    sessions + other patients, 28 channels), either static or re-centred online.
+- **Selection:** they join round 1's candidates in the family "no labels after calibration".
+  Selection without hindsight works as before.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: combination study (exploratory; S3 dev and S4)
 
 - **Why:** each confirmed gain is a few points. This study asks whether they add up, and
