@@ -36,6 +36,37 @@ only.
 
 ## Log
 
+### 2026-11-01 · RESULT, round 3 of the combination study (exploratory, dev only): no further gain
+
+Round 3 as declared: S3 dev with pair-wise updates, S4 with per-trial updates
+(`results/summary/combo_{s3,s4}_r3.csv`). S4's round-1 columns were taken from the committed
+round-1 run, after one patient was shown to give identical results either way. The run used the
+faster, bit-identical code of commit 0885d53.
+
+- **New decoders vs `bma` (k = 5; mean difference, helped/harmed, uncorrected p):**
+  - S3, first session: `bma3` 91.4 % vs 91.1 % (+0.3, 6/4, p 0.65). Every new decoder lies
+    between −1.0 and −0.4.
+  - S3, later: `prevoth_sup_bank28_fix` 90.4 % vs 89.9 % (+0.6, 8/3, p 0.29); `_hl20` +0.2;
+    `bma3` +0.0.
+  - S4, first session: `bma3` 81.2 % vs 80.3 % (+0.9, 16/5, p 0.012); `pooled_sup_bank_fix`
+    +0.2. The rest are below `bma`.
+  - S4, later: `bma3` +0.3 (p 0.43); the `_fix` / `_hl20` returning-patient stacks +0.1.
+- **At k = 10:** the largest gain is +1.0 (S3 later, `prevoth_sup_bank28`, p 0.076; `bma3`
+  +0.8, p 0.016). At S4 first session, `bma` itself is best.
+- **Honest selection:**
+  - Leave-one-patient-out picks: 91.4 / 89.6 / 90.4 / 90.0 % on S3 and
+    81.2 / 81.3 / 78.7 / 78.8 % on S4 (first/later × k = 5/10). `bma` scores
+    91.1 / 91.0 / 89.9 / 89.8 and 80.3 / 81.5 / 79.1 / 79.4.
+  - Picks from one cohort applied to the other: +0.9, +0.1, +0.3 and +0.0 over `bma`.
+- **Verdict:**
+  - Forgetting, a fixed donor weight, donors from every session, early and late window
+    experts, and a larger model average each add at most about 1 point over `bma`. None of it
+    holds consistently across cohorts and settings.
+  - The two nominal p < 0.05 gains are among 56 comparisons (28 per cohort).
+  - The combination has plateaued at about 90-91 % on S3 dev and 79-81 % on S4. `bma`, the
+    confirmed decoder, stays the recommended system.
+  - No further round is planned (the user's decision, 2026-11-01).
+
 ### 2026-11-01 · AUDIT RESULT 3: strictly chronological calibration (S4); every combination gain holds
 
 P3 calibrates on the first k trials of each class. In S4's randomised order, some test trials

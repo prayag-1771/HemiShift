@@ -49,7 +49,10 @@ then tests them on hospitals they have never seen.
 - In the combination study (`scripts/combo_explore.py`):
   - an empirical-Bayes prior instead of pooling trials;
   - sub-window augmentation;
-  - unsupervised bias adaptation.
+  - unsupervised bias adaptation;
+  - round 3: forgetting, a fixed donor weight, donors from every session, early/late window
+    experts, a larger model average (at most +1 point over the combined decoder; it has
+    plateaued at about 90 % on S3 and 80 % on S4).
 
 **Pitfalls quantified on the way:**
 - In an imagery-vs-rest paradigm, non-motor channels separate the classes too. On S3, frontal
