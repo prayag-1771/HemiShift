@@ -17,10 +17,14 @@ patient's mean over post and follow-up. Fixed sequence at alpha = 0.05: each is 
 every earlier one was confirmed.
   H-C1  bma > own, pre session
   H-C2  bma > own, later sessions
-  H-C3  prevoth_unsup_bank28 > own, later sessions (no labels after calibration)
-  H-C4  prevzero_unsup_bank > own, later sessions (no labels at all in the later session)
-  H-C5  bma > own_sup, pre session (beyond the known co-adaptive decoder)
-Results: results/summary/s3_locked_combo.csv.
+  H-C3  bma > own_sup, pre session (beyond the known co-adaptive decoder)
+  H-C4  prevoth_unsup_bank28 > own, later sessions (no labels after calibration)
+  H-C5  prevzero_unsup_bank > own, later sessions (no labels at all in the later session)
+  H-C6  pooled_unsup_bank > own, pre session (no labels after calibration)
+The verdicts rest on the raw recordings. Declared sensitivity analysis, also run once: the same
+tests on the authors' ICA-cleaned release of the same patients (donors: the dev patients'
+cleaned recordings). Results: results/summary/s3_locked_combo.csv and
+s3_locked_combo_clean.csv.
 
 Usage: .venv/Scripts/python -I scripts/s3_locked_combo.py [--dry-run] [--stats-only]
   --dry-run decodes dev patients 2 and 3 with the other 14 dev patients as donors (a check of
@@ -52,16 +56,19 @@ ALPHA = 0.05
 HYPOTHESES = (  # (name, decoder, baseline, setting)
     ("H-C1", "bma", "own", "pre"),
     ("H-C2", "bma", "own", "later"),
-    ("H-C3", "prevoth_unsup_bank28", "own", "later"),
-    ("H-C4", "prevzero_unsup_bank", "own", "later"),
-    ("H-C5", "bma", "own_sup", "pre"),
+    ("H-C3", "bma", "own_sup", "pre"),
+    ("H-C4", "prevoth_unsup_bank28", "own", "later"),
+    ("H-C5", "prevzero_unsup_bank", "own", "later"),
+    ("H-C6", "pooled_unsup_bank", "own", "pre"),
 )
-OUT = RESULTS_DIR / "summary" / "s3_locked_combo.csv"
+OUT = {"raw": RESULTS_DIR / "summary" / "s3_locked_combo.csv",
+       "clean": RESULTS_DIR / "summary" / "s3_locked_combo_clean.csv"}
+COHORTS = {"raw": ("s3", "s3locked"), "clean": ("s3clean", "s3cleanlocked")}
 
 
-def decode(jobs, targets):
-    first, _ = combo.run("s3", jobs, combo.run_patient, targets)
-    second, _ = combo.run("s3", jobs, combo.run_patient_r2, targets)
+def decode(jobs, donors, targets):
+    first, _ = combo.run(donors, jobs, combo.run_patient, targets)
+    second, _ = combo.run(donors, jobs, combo.run_patient_r2, targets)
     return first.merge(second, on=["session", "subject", "k"], validate="one_to_one")
 
 
@@ -72,8 +79,8 @@ def describe(t, decoder, baseline):
             f"harmed {(diff < 0).sum()})")
 
 
-def report(table):
-    print("\n=== pre-registered hypotheses (k = 5; one-sided Wilcoxon; fixed sequence) ===")
+def report(table, version):
+    print(f"\n=== {version}: pre-registered hypotheses (k = 5; one-sided Wilcoxon; fixed sequence) ===")
     going = True
     for name, decoder, baseline, setting in HYPOTHESES:
         t = combo.per_setting(table, setting, 5)
@@ -85,7 +92,7 @@ def report(table):
             verdict = "not tested (an earlier hypothesis was not confirmed); p is descriptive"
         print(f"  {name} ({setting}, {len(t)} patients): {describe(t, decoder, baseline)}; "
               f"p = {p:.4f} -> {verdict}")
-    print("\n=== descriptive: every decoder vs own ===")
+    print(f"\n=== {version}, descriptive: every decoder vs own ===")
     for setting in ("pre", "later"):
         for k in combo.KS:
             t = combo.per_setting(table, setting, k)
@@ -101,14 +108,16 @@ def main():
     parser.add_argument("--jobs", type=int, default=7)
     args = parser.parse_args()
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
-    if args.stats_only:
-        table = pd.read_csv(OUT)
-    elif args.dry_run:
-        table = decode(args.jobs, [2, 3])
-    else:
-        table = decode(args.jobs, "s3locked")
-        table.to_csv(OUT, index=False)
-    report(table)
+    if args.dry_run:
+        report(decode(args.jobs, "s3", [2, 3]), "dry run")
+        return
+    for version, (donors, targets) in COHORTS.items():
+        if args.stats_only:
+            table = pd.read_csv(OUT[version])
+        else:
+            table = decode(args.jobs, donors, targets)
+            table.to_csv(OUT[version], index=False)
+        report(table, version)
 
 
 if __name__ == "__main__":

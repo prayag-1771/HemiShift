@@ -36,6 +36,48 @@ only.
 
 ## Log
 
+### 2026-11-01 · PRE-REGISTRATION: the combination decoders on the S3 locked test patients (run once)
+
+- **What is tested:** the combination decoders of `scripts/combo_explore.py` (rounds 1 and 2),
+  frozen in this commit, on the 8 S3 locked-test patients.
+  - The decoders were developed on the 16 S3 dev patients and the 27 S4 patients only.
+  - None of them has been run on these 8.
+- **Earlier use of these patients:**
+  - Pre sessions: the pooling confirmation (2026-10-24) and the declared ICA sensitivity check
+    (2026-10-31).
+  - All sessions: `s3_neuro`, descriptively (own TS + LR, blocked CV, all 24 patients).
+  - This is the third pre-registered use of the S3 locked set.
+- **Setting:**
+  - Sessions: pre (8 patients), post (8) and follow-up (6).
+  - Donors: the 16 dev patients' same session. A returning patient's earlier sessions are its
+    own.
+  - Protocol P3, k = 5 primary and 10 descriptive.
+  - "Later sessions" is each patient's mean over post and follow-up.
+  - Script: `scripts/s3_locked_combo.py`, run once. Its `--dry-run` was checked on dev
+    patients 2 and 3 only.
+- **Hypotheses:** one-sided Wilcoxon signed-rank over patients, k = 5. Fixed sequence at
+  α = 0.05: each is tested only if every earlier one was confirmed. The dev evidence is S3 /
+  S4 at k = 5, with S3 ICA-cleaned last.
+
+| | Hypothesis | Dev evidence (gain vs comparator, helped/harmed) |
+|---|---|---|
+| H-C1 | `bma` > own, pre session | +9.3 (14/1) / +11.2 (26/1); cleaned +6.2 (14/1) |
+| H-C2 | `bma` > own, later sessions | +10.3 (16/0) / +11.6 (21/1); cleaned +7.4 (16/0) |
+| H-C3 | `bma` > `own_sup` (the known co-adaptive decoder), pre session | +3.7 (13/2) / +5.1 (24/3); cleaned +2.2 |
+| H-C4 | `prevoth_unsup_bank28` > own, later sessions (no labels after calibration) | +8.8 (15/0) / +9.8 (20/3) |
+| H-C5 | `prevzero_unsup_bank` > own, later sessions (no labels at all in the later session) | +6.2 (15/0) / +6.2 (16/5); cleaned +3.8 (10/5) |
+| H-C6 | `pooled_unsup_bank` > own, pre session (no labels after calibration) | +6.5 (13/0) / +5.3 (22/4); cleaned +3.5 (11/4) |
+
+- **Raw and cleaned:**
+  - The verdicts rest on the raw recordings, as in development.
+  - A declared sensitivity analysis, also run once, applies the same tests to the authors'
+    ICA-cleaned release of the same patients, with the dev patients' cleaned recordings as
+    donors.
+- **Power:** with 8 patients the smallest one-sided p is 1/256 = 0.004. A single harmed patient
+  with a large loss can sink a test.
+- **Rules:** nothing in the decoders or settings changes after this commit. Any later change
+  needs fresh data.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: artifact check of the combination study (S3 dev, ICA-cleaned)
 
 - **Why:** round 1 found co-adaptive bank stacks 9–12 points above the own decoder in both

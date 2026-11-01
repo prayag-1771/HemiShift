@@ -112,15 +112,16 @@ FLOOR = 1e-4  # prior variance floor
 
 # ---------- data (main process) ----------
 
-def load_clean(phase):
-    """S3 dev (rest, MI) pairs from the authors' ICA-cleaned release on the 42 channels common
-    with the raw recording (s3_processed_check), cached under data/harmonised."""
+def load_clean(phase, group="dev"):
+    """S3 (rest, MI) pairs of the split's `group` from the authors' ICA-cleaned release, on the
+    42 channels common with the raw recording (s3_processed_check), cached under
+    data/harmonised."""
     check = _script("s3_processed_check")
-    path = HARMONISED_DIR / f"s3proc_dev_{phase}_processed_t42.npz"
+    path = HARMONISED_DIR / f"s3proc_{group}_{phase}_processed_t42.npz"
     split = json.loads((CONFIG_DIR / "splits" / "wang2026sf_locked_test.json").read_text())
     if not path.exists():
         patients = {}
-        for subject in split["dev"]:
+        for subject in split[group]:
             if not (RAW_DIR / "wang2026sf" / "processeddata" / f"sub-{subject:02d}" / phase).is_dir():
                 continue
             e = load_wang2026sf_epochs([subject], phases=(phase,), template=check.COMMON42,
@@ -134,18 +135,19 @@ def load_clean(phase):
         np.savez(path, **{f"X{s}": X for s, (X, _) in patients.items()},
                  **{f"y{s}": y for s, (_, y) in patients.items()})
     data = np.load(path)
-    return {s: (data[f"X{s}"], data[f"y{s}"]) for s in split["dev"] if f"X{s}" in data.files}
+    return {s: (data[f"X{s}"], data[f"y{s}"]) for s in split[group] if f"X{s}" in data.files}
 
 
 def load(cohort, phase, channels):
     """Epochs in recording order and labels (MI 1) per patient; 14 or 28 channels, each group
     re-referenced to its own average."""
     sweep, s4 = _script("s3_sweep"), _script("s4_replication")
-    if cohort == "s3clean":
+    if cohort in ("s3clean", "s3cleanlocked"):
         common = _script("s3_processed_check").COMMON42
         template = EXTENDED_TEMPLATE if channels == 14 else sweep.CENTRAL28
+        group = "dev" if cohort == "s3clean" else "test"
         return {s: (common_average(X[:, [common.index(ch) for ch in template]]).astype(np.float32), y)
-                for s, (X, y) in load_clean(phase).items()}
+                for s, (X, y) in load_clean(phase, group).items()}
     if cohort in ("s3", "s3locked"):
         group = "dev" if cohort == "s3" else "test"
         if channels == 14:
