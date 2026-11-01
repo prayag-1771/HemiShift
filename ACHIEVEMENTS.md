@@ -36,6 +36,31 @@ only.
 
 ## Log
 
+### 2026-11-01 · AUDIT RESULT 1: pair-wise updates; all six locked-test verdicts stand, H-C3's margin is corrected to +3.0
+
+Updating the online decoders only between (rest, MI) pairs (`audit_combo.py pairs`;
+`results/summary/audit_pairs_*.csv`) removes any information about a trial's position in
+S3's alternation.
+
+- **S3 dev:** the stacks are unchanged. `bma` goes 91.0 → 91.1 (first session) and
+  89.7 → 89.9 (later).
+- **Locked patients, raw:**
+  - H-C1 +12.0 (8/0, p 0.0039)
+  - H-C2 +12.0 (8/0, 0.0039)
+  - H-C3 +3.0 (7/1, 0.047)
+  - H-C4 +11.5 (8/0, 0.0039)
+  - H-C5 +7.9 (8/0, 0.0039)
+  - H-C6 +8.7 (7/1, 0.0078)
+  - **All confirmed.**
+- **Locked patients, ICA-cleaned:** all confirmed (p 0.004–0.039). H-C3 is +2.6 (6/0).
+- **CORRECTION to H-C3's effect size:**
+  - Per-trial updating had handicapped the co-adaptive own decoder (`own_sup`) in S3: it
+    learned each rest label just before the paired MI trial. Updated pair-wise, `own_sup`
+    reaches 86.0 % instead of 83.5 % on the locked patients.
+  - The stack's honest margin over the known co-adaptive method is therefore about 3 points
+    (raw +3.0, cleaned +2.6), not the 5.2 first reported. The verdict is unchanged.
+  - The pair-wise numbers are the ones to cite.
+
 ### 2026-11-01 · RESULT (external test, S1 Beijing): the stack beats the own decoder; not the co-adaptive one
 
 Pre-registered in 484842c and run once with `scripts/s1_combo_external.py`. Data: 49
