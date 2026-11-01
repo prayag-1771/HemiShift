@@ -64,7 +64,20 @@ patients (pre 8, post 8, follow-up 6), raw recordings. Results in
   - The co-adaptive decoders need the cue label of every trial, which a cue-based rehab
     session has.
   - The S3 locked set has now been used for three pre-registered analyses.
-  - The ICA-cleaned sensitivity analysis is reported below once it has run.
+- **ICA-cleaned sensitivity analysis (declared, run once;
+  `results/summary/s3_locked_combo_clean.csv`):** all six hold on the authors' cleaned
+  recordings of the same patients, with dev patients' cleaned recordings as donors.
+
+| | Cleaned result (k = 5) | One-sided p |
+|---|---|---|
+| H-C1 | 76.6 → 87.1 % (+10.6), 7/1 | 0.020 |
+| H-C2 | 73.9 → 86.7 % (+12.8), 8/0 | 0.0039 |
+| H-C3 | 82.2 → 87.1 % (+4.9), 7/0 | 0.0078 |
+| H-C4 | 73.9 → 86.3 % (+12.4), 6/0 | 0.016 |
+| H-C5 | 73.9 → 83.4 % (+9.5), 7/1 | 0.012 |
+| H-C6 | 76.6 → 83.5 % (+6.9), 6/2 | 0.039 |
+
+  The gains are therefore not eye or muscle artifacts that ICA removes.
 
 ### 2026-11-01 · PRE-REGISTRATION: the combination decoders on the S3 locked test patients (run once)
 

@@ -402,11 +402,11 @@ def fig8():
 
 
 LADDER = {  # setting: (decoder, label) from the patient's own decoder to the full stack
-    "pre": (("own", "own"), ("pooled_bank", "+ others,\nband bank"), ("pooled_unsup_bank", "+ online\nre-centring"),
-            ("pooled_sup_bank", "+ cue labels\n(co-adaptive)"), ("bma", "+ model\naveraging")),
-    "later": (("own", "own"), ("prevoth_bank28", "+ own past,\nothers, bank"),
-              ("prevoth_unsup_bank28", "+ online\nre-centring"), ("prevoth_sup_bank28", "+ cue labels\n(co-adaptive)"),
-              ("bma", "+ model\naveraging")),
+    "pre": (("own", "own"), ("pooled_bank", "+ others, bank"), ("pooled_unsup_bank", "+ re-centring"),
+            ("pooled_sup_bank", "+ cue labels"), ("bma", "+ averaging")),
+    "later": (("own", "own"), ("prevoth_bank28", "+ own past, others"),
+              ("prevoth_unsup_bank28", "+ re-centring"), ("prevoth_sup_bank28", "+ cue labels"),
+              ("bma", "+ averaging")),
 }
 
 
@@ -430,35 +430,42 @@ def fig9():
                "S3 dev, ICA-cleaned": combo_table("combo_s3clean")}
     styles = {"S3 dev": (POOLED, "o", "-"), "S4": (BANK, "s", "-"), "S3 dev, ICA-cleaned": (POOLED, "o", ":")}
     locked = read("s3_locked_combo")
-    fig, axes = plt.subplots(1, 4, figsize=(7.2, 2.9), gridspec_kw={"width_ratios": [1.5, 1.5, 0.8, 0.8]})
-    for ax, (setting, title) in zip(axes[:2], (("pre", "a  First session"), ("later", "b  Returning patients"))):
+    fig, axes = plt.subplots(1, 4, figsize=(7.2, 3.3), gridspec_kw={"width_ratios": [1.45, 1.45, 0.75, 0.75]})
+    for ax, (setting, title) in zip(axes[:2], (("pre", "a  First session (dev)"), ("later", "b  Returning (dev)"))):
         steps = LADDER[setting]
+        ends = []
         for name, table in cohorts.items():
             t = per_setting(table, setting)
             means = [t[d].mean() for d, _ in steps]
             color, marker, ls = styles[name]
-            ax.plot(range(len(steps)), means, color=color, marker=marker, ls=ls, ms=4, lw=1.2,
+            ax.plot(range(len(steps)), means, color=color, marker=marker, ls=ls, ms=3.5, lw=1.2,
                     label=f"{name} (n = {len(t)})")
-            ax.text(len(steps) - 0.85, means[-1], f"+{means[-1] - means[0]:.1f}", va="center", fontsize=6.5,
-                    color=color, fontweight="bold")
+            ends.append((means[-1], f"+{means[-1] - means[0]:.1f}", color))
+        placed = []
+        for y, text, color in sorted(ends, reverse=True):  # keep the end labels apart
+            y = min([y] + [p - 1.6 for p in placed if abs(p - y) < 1.6])
+            placed.append(y)
+            ax.text(len(steps) - 0.82, y, text, va="center", fontsize=6.3, color=color, fontweight="bold")
         ax.axvspan(2.5, len(steps) - 0.5, color="#f3f4f6", zorder=0)
         ax.text(3.5, 0.03, "needs cue labels\nduring the session", transform=ax.get_xaxis_transform(),
-                ha="center", fontsize=5.8, color="#6b7280")
-        ax.set_xticks(range(len(steps)), [label for _, label in steps], fontsize=5.8)
-        ax.set_xlim(-0.3, len(steps) - 0.3)
+                ha="center", fontsize=5.6, color="#6b7280")
+        ax.set_xticks(range(len(steps)), [label for _, label in steps], fontsize=5.8, rotation=35, ha="right",
+                      rotation_mode="anchor")
+        ax.set_xlim(-0.3, len(steps) - 0.1)
         ax.set_ylim(62, 95)
         ax.set_title(title)
     axes[0].set_ylabel("mean accuracy (%), k = 5")
-    axes[0].legend(frameon=False, fontsize=5.8, loc="upper left")
-    for ax, (setting, title) in zip(axes[2:], (("pre", "c  Locked, first"), ("later", "d  Locked, returning"))):
+    for ax, (setting, title) in zip(axes[2:], (("pre", "c  Locked: first"), ("later", "d  Locked: returning"))):
         t = per_setting(locked, setting)
         p = one_sided(t["bma"] - t["own"])
-        paired(ax, t["own"], t["bma"], ["own", "stack"], (OWN, PREVIOUS), f"{title} (n = {len(t)})")
+        paired(ax, t["own"], t["bma"], ["own", "stack"], (OWN, PREVIOUS), title)
         ax.set_ylim(40, 101)
-        ax.text(0.5, 0.02, f"p = {p:.3f}", transform=ax.transAxes, ha="center", va="bottom", fontsize=6.3,
-                color="#374151")
+        ax.text(0.5, 0.02, f"n = {len(t)}, p = {p:.3f}", transform=ax.transAxes, ha="center", va="bottom",
+                fontsize=6.3, color="#374151")
     axes[2].set_ylabel("held-out accuracy (%), k = 5")
-    fig.tight_layout(w_pad=1.2)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=6.3, loc="lower left", ncol=3, bbox_to_anchor=(0.02, 0.0))
+    fig.tight_layout(w_pad=1.0, rect=(0, 0.06, 1, 1))
     save(fig, "fig9_combination")
 
 
