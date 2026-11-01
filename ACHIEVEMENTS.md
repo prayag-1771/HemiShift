@@ -36,6 +36,44 @@ only.
 
 ## Log
 
+### 2026-11-01 · DECLARED BEFORE RUNNING: leakage and overfitting audit of the combination study
+
+The user asked for proof that the results carry no overfitting and no data leak. Five checks
+follow.
+
+1. **Order leak in alternating paradigms.**
+   - The problem: S3 alternates rest and MI. The online decoders were updated before every
+     trial, so before each MI trial they had just seen one extra rest trial. Online
+     re-centring could then tilt toward calling the next trial MI. This information comes
+     from the trial's position, not from the brain.
+   - The fix: `block = 2` updates the decoders, and the model-averaging weights, only between
+     (rest, MI) pairs, so every update sees a balanced set.
+   - The check: rerun every decoder this way on S3 dev and on the S3 locked patients, raw and
+     cleaned. Compare with the per-trial results and with the six hypothesis tests.
+   - S4's trial order is randomised, so it is not affected.
+2. **Label permutation.** Every patient's labels are shuffled within each session, donors and
+   earlier sessions included. Every decoder is then rerun on S3 dev (pair-wise updates) and on
+   S4. Any decoder clearly above 50 % would reveal a leak.
+3. **Strictly chronological calibration on S4.**
+   - The problem: P3's "first k trials per class" leaves a few test trials before the last
+     calibration trial when the trial order is random.
+   - The check: every S4 decoder is rerun with all trials up to the one that completes k per
+     class used for calibration. S3's pairs are already strictly chronological.
+4. **Code checks.**
+   - Unit tests (11, `tests/test_combo.py`) show that no decision changes when later trials'
+     labels or recordings change, for per-trial and pair-wise updates.
+   - Assertions in `combo_explore.run` check that the target patient is never among its own
+     donors.
+   - The split files are re-hashed, and the cached data are checked to hold only the
+     intended patients.
+5. **Independent recomputation** of every confirmatory p-value from the saved per-patient
+   results, and a check for patients shared between S3 and S4 (same institution), using the
+   participants tables.
+
+If the pair-wise rerun changes a locked-test verdict, the change will be reported as a
+correction of the 2026-11-01 result. A second external test (S1, another hospital) will be
+pre-registered separately, with whichever update rule the audit supports.
+
 ### 2026-11-01 · RESULT (confirmed): the combination decoders on the S3 locked test; all six hypotheses hold
 
 Pre-registered in ec5cd82 and run once with `scripts/s3_locked_combo.py`. Data: 8 locked-test

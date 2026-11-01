@@ -224,7 +224,7 @@ def priors(TF, labels, pool, targets, views):
 
 # ---------- one patient-session (runs in the workers) ----------
 
-def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previous):
+def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1):
     """All decoders for one patient-session and every k. others: view set -> donor group of the
     other patients in this session; previous: view set -> the patient's earlier sessions."""
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -239,13 +239,13 @@ def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previo
             "pooled_bank28": static(cov, y, cal, test, BANK28, [others["bank28"]]),
             "pooled_bank_crops": crops_static(crops_of(cov), y, cal, test, crops),
             "prior_bank": static(cov, y, cal, test, BANK, prior=prior),
-            "own_sup": online(cov, y, cal, test, ("830",)),
-            "pooled_sup": online(cov, y, cal, test, ("830",), groups=[others["830"]]),
-            "own_sup_bank": online(cov, y, cal, test, BANK),
-            "pooled_sup_bank": online(cov, y, cal, test, BANK, groups=[others["bank"]]),
-            "pooled_sup_bank28": online(cov, y, cal, test, BANK28, groups=[others["bank28"]]),
-            "prior_sup_bank": online(cov, y, cal, test, BANK, prior=prior),
-            "pooled_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=[others["bank"]]),
+            "own_sup": online(cov, y, cal, test, ("830",), block=block),
+            "pooled_sup": online(cov, y, cal, test, ("830",), groups=[others["830"]], block=block),
+            "own_sup_bank": online(cov, y, cal, test, BANK, block=block),
+            "pooled_sup_bank": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block),
+            "pooled_sup_bank28": online(cov, y, cal, test, BANK28, groups=[others["bank28"]], block=block),
+            "prior_sup_bank": online(cov, y, cal, test, BANK, prior=prior, block=block),
+            "pooled_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=[others["bank"]], block=block),
         }
         experts = list(EXPERTS)
         if previous is not None:
@@ -256,13 +256,13 @@ def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previo
                                          [previous["bank28"], others["bank28"]]),
                 "prevzero_bank": static(cov, y, cal, test, BANK, zero=previous["bank"]),
                 "prevoth_sup_bank": online(cov, y, cal, test, BANK,
-                                           groups=[previous["bank"], others["bank"]]),
+                                           groups=[previous["bank"], others["bank"]], block=block),
                 "prevoth_sup_bank28": online(cov, y, cal, test, BANK28,
-                                             groups=[previous["bank28"], others["bank28"]]),
-                "prevzero_unsup_bank": online(cov, y, cal, test, BANK, zero=previous["bank"]),
+                                             groups=[previous["bank28"], others["bank28"]], block=block),
+                "prevzero_unsup_bank": online(cov, y, cal, test, BANK, zero=previous["bank"], block=block),
             })
             experts += EXPERTS_LATER
-        p["bma"] = bma([p[e] for e in experts], yt)
+        p["bma"] = bma([p[e] for e in experts], yt, block)
         rows.append({"session": phase, "subject": s, "k": k, "n_test": len(test),
                      **{n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()}})
         probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
@@ -270,7 +270,7 @@ def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previo
     return rows, probs
 
 
-def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, previous):
+def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1):
     """Round 2: the unsupervised (re-centring only) versions of round 1's best stacks.
     prevothzero_* use no patient labels at all: earlier sessions + other patients."""
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -278,14 +278,14 @@ def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, pre
     for k, (cal, test) in splits.items():
         yt = y[test]
         p = {"pooled_unsup_bank28": online(cov, y, cal, test, BANK28, labels="cal",
-                                           groups=[others["bank28"]])}
+                                           groups=[others["bank28"]], block=block)}
         if previous is not None:
             both, both28 = [previous["bank"], others["bank"]], [previous["bank28"], others["bank28"]]
             p.update({
-                "prevoth_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=both),
-                "prevoth_unsup_bank28": online(cov, y, cal, test, BANK28, labels="cal", groups=both28),
+                "prevoth_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=both, block=block),
+                "prevoth_unsup_bank28": online(cov, y, cal, test, BANK28, labels="cal", groups=both28, block=block),
                 "prevothzero_bank28": static(cov, y, cal, test, BANK28, zero=both28),
-                "prevothzero_unsup_bank28": online(cov, y, cal, test, BANK28, zero=both28),
+                "prevothzero_unsup_bank28": online(cov, y, cal, test, BANK28, zero=both28, block=block),
             })
         rows.append({"session": phase, "subject": s, "k": k,
                      **{n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()}})
@@ -295,23 +295,37 @@ def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, pre
 
 # ---------- driver ----------
 
-def split(cohort, y, k):
+def split(cohort, y, k, chrono=False):
+    """Calibration and test trials. S3: the first k (rest, MI) pairs. S4: the first k trials per
+    class (P3); with `chrono`, every trial up to the one that completes k per class calibrates,
+    so that no test trial precedes a calibration trial (an audit of P3)."""
     if cohort.startswith("s3"):
         return np.arange(2 * k), np.arange(2 * k, len(y))  # first k (rest, MI) pairs
+    if chrono:
+        counts = np.stack([np.cumsum(y == 0), np.cumsum(y == 1)])
+        end = int(np.argmax(counts.min(axis=0) >= k)) + 1
+        return np.arange(end), np.arange(end, len(y))
     return calibration_split(y, k, mode="first")
 
 
-def run(cohort, jobs, worker, targets=None):
+def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False):
     """Decode every patient of `cohort`, the other patients being the donors. With `targets`,
     decode only those: a second cohort (e.g. "s3locked", with all of `cohort` as the donor
-    pool), or a list of `cohort`'s own patients (held out of the pool; a dry run)."""
+    pool), or a list of `cohort`'s own patients (held out of the pool; a dry run).
+    Audits: `block` (updates between blocks of trials only, see combo.online); `permute`, a
+    seed: every patient's labels are shuffled within each session, donors included, so every
+    decoder must fall to chance unless information leaks; `chrono` (see `split`)."""
     started = time.time()
     cov, labels = prepare(cohort)
+    if permute is not None:
+        rng = np.random.default_rng(permute)
+        labels = {ph: {s: rng.permutation(y) for s, y in sorted(data.items())} for ph, data in labels.items()}
     pool = {ph: sorted(labels[ph]) for ph in SESSIONS}
     decode = pool
     if isinstance(targets, str):
         extra_cov, extra_labels = prepare(targets)
         assert not any(set(extra_labels[ph]) & set(labels[ph]) for ph in SESSIONS)
+        assert permute is None
         for ph in SESSIONS:
             cov[ph].update(extra_cov[ph])
             labels[ph].update(extra_labels[ph])
@@ -344,9 +358,10 @@ def run(cohort, jobs, worker, targets=None):
                             np.concatenate([labels[phase][o] for o in rest]))
                 crops = (np.concatenate([TF[phase][o]["crops"] for o in rest]), others["bank"][1])
                 y = labels[phase][s]
+                assert s not in rest and all(o in pool[phase] for o in rest)
                 yield delayed(worker)(phase, s, cov[phase][s], y,
-                                      {k: split(cohort, y, k) for k in KS}, others, others_C,
-                                      crops, prior[s], previous)
+                                      {k: split(cohort, y, k, chrono) for k in KS}, others, others_C,
+                                      crops, prior[s], previous, block)
 
     rows, probs = [], {}
     for r, p in Parallel(n_jobs=jobs, return_as="generator")(tasks()):

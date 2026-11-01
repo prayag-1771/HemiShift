@@ -72,6 +72,49 @@ def test_online_uses_only_earlier_labels():
     assert np.allclose(p[:16], q[:16])  # test[15] is trial 25
 
 
+def test_online_decisions_ignore_future_epochs():
+    rng = np.random.default_rng(5)
+    C, y = _patient(rng)
+    cal, test = np.arange(10), np.arange(10, 40)
+    D, y_d = _patient(rng, n=60)
+    groups = [(tangent_all(D), y_d)]
+    p = online({"a": C}, y, cal, test, ("a",), groups=groups)
+    changed = C.copy()
+    changed[25:] = _patient(rng)[0][25:]  # replace every epoch from trial 25 on
+    q = online({"a": changed}, y, cal, test, ("a",), groups=groups)
+    assert np.allclose(p[:15], q[:15])  # test[14] is trial 24
+    unsup = online({"a": C}, y, cal, test, ("a",), labels="cal", groups=groups)
+    unsup_changed = online({"a": changed}, y, cal, test, ("a",), labels="cal", groups=groups)
+    assert np.allclose(unsup[:15], unsup_changed[:15])
+
+
+def test_pairwise_updates_use_only_complete_earlier_pairs():
+    rng = np.random.default_rng(6)
+    C, y = _patient(rng)
+    cal, test = np.arange(10), np.arange(10, 40)
+    p = online({"a": C}, y, cal, test, ("a",), block=2)
+    changed, flipped = C.copy(), y.copy()
+    changed[20] = _patient(rng)[0][20]  # test[10], the first epoch of a pair
+    flipped[20] = 1 - flipped[20]
+    q = online({"a": changed}, flipped, cal, test, ("a",), block=2)
+    assert np.allclose(p[:10], q[:10])  # earlier decisions never saw trial 20
+    assert np.isclose(p[11], q[11])  # nor did its pair partner (test[11])
+    assert not np.isclose(p[12], q[12])  # the next pair does
+    assert np.allclose(online({"a": C}, y, cal, test, ("a",), block=1),
+                       online({"a": C}, y, cal, test, ("a",)))
+
+
+def test_bma_blocks_update_weights_only_between_blocks():
+    y = np.tile([0, 1], 10)
+    good = np.where(y == 1, 0.9, 0.1)
+    bad = np.where(y == 1, 0.2, 0.8)
+    out = bma([good, bad], y, block=2)
+    assert np.isclose(out[0], out[0]) and np.isclose(out[1], (good[1] + bad[1]) / 2)
+    flipped = y.copy()
+    flipped[2] = 1 - flipped[2]
+    assert np.isclose(bma([good, bad], flipped, block=2)[3], out[3])  # trial 2's label not used for trial 3
+
+
 def test_one_full_window_crop_equals_the_pooled_static_decoder():
     rng = np.random.default_rng(3)
     C, y = _patient(rng)

@@ -160,47 +160,59 @@ def crops_static(crops, y, cal, test, donors):
     return p.reshape(len(test), m).mean(axis=1)
 
 
-def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=None):
+def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=None, block=1):
     """P(MI) of each test trial in recording order, from a decoder refitted just before it.
     labels: "all" (the calibration and every earlier test trial, by their cue labels) or
     "cal" (the calibration only). The patient is re-centred on the calibration and every
     earlier test trial. Donor groups weigh as much as the labelled trials. zero: a fixed
-    decoder trained on donor groups only (`donor_decoder`); only the re-centring adapts."""
+    decoder trained on donor groups only (`donor_decoder`); only the re-centring adapts.
+    block: the decoder is updated only at the start of each block of `block` test trials.
+    With block = 2 in a paradigm whose classes alternate (S3 rest/MI pairs, S1 left/right),
+    every update sees a class-balanced set, so the update cannot carry the trial's position
+    in the alternation."""
     fixed = donor_decoder(zero) if zero is not None else None
     model, w_map = lr(warm=True), None
     means = [None] * len(views)
     p = np.empty(len(test))
+    state = None
     for i, trial in enumerate(test):
-        ref = np.concatenate([cal, test[:i]])
-        rows = np.append(ref, trial)
-        blocks = []
-        for j, v in enumerate(views):
-            means[j] = mean_riemann(cov[v][ref], init=means[j])
-            W = invsqrtm(means[j])
-            blocks.append(tangent_space(W @ cov[v][rows] @ W, np.eye(cov[v].shape[-1]),
-                                        metric="riemann"))
-        T = np.hstack(blocks)
-        if fixed is not None:
-            p[i] = fixed.predict_proba(T[-1:])[0, 1]
-            continue
-        lab = np.arange(len(ref)) if labels == "all" else np.arange(len(cal))
-        if prior is not None:
-            w_map = map_lr(T[lab], y[ref][lab], prior, w_map)
-            p[i] = map_proba(w_map, T[-1:])[0]
-            continue
-        X, Y, w = stack(T[lab], y[ref][lab], groups)
-        p[i] = model.fit(X, Y, sample_weight=w).predict_proba(T[-1:])[0, 1]
+        seen = i - i % block
+        if state is None or state[0] != seen:
+            ref = np.concatenate([cal, test[:seen]])
+            Ws = []
+            for j, v in enumerate(views):
+                means[j] = mean_riemann(cov[v][ref], init=means[j])
+                Ws.append(invsqrtm(means[j]))
+            T = np.hstack([tangent_space(W @ cov[v][ref] @ W, np.eye(cov[v].shape[-1]), metric="riemann")
+                           for W, v in zip(Ws, views)])
+            lab = np.arange(len(ref)) if labels == "all" else np.arange(len(cal))
+            if fixed is not None:
+                fitted = fixed
+            elif prior is not None:
+                w_map = map_lr(T[lab], y[ref][lab], prior, w_map)
+                fitted = w_map
+            else:
+                X, Y, w = stack(T[lab], y[ref][lab], groups)
+                fitted = model.fit(X, Y, sample_weight=w)
+            state = (seen, Ws, fitted)
+        _, Ws, fitted = state
+        t = np.hstack([tangent_space(W @ cov[v][[trial]] @ W, np.eye(cov[v].shape[-1]), metric="riemann")
+                       for W, v in zip(Ws, views)])
+        p[i] = map_proba(fitted, t)[0] if prior is not None and fixed is None else fitted.predict_proba(t)[0, 1]
     return p
 
 
-def bma(probs, y):
+def bma(probs, y, block=1):
     """Bayesian model averaging: each test trial's P(MI) is the decoders' mean weighted by
-    their likelihood on the earlier test trials (whose labels arrive after each decision)."""
+    their likelihood on the earlier test trials (whose labels arrive after each decision).
+    With block > 1 the weights change only at the start of each block (see `online`)."""
     P = np.clip(np.vstack(probs), 1e-6, 1 - 1e-6)
-    loglik = np.zeros(len(P))
+    loglik, applied = np.zeros(len(P)), np.zeros(len(P))
     out = np.empty(P.shape[1])
     for i in range(P.shape[1]):
-        weights = np.exp(loglik - loglik.max())
+        if i % block == 0:
+            applied = loglik.copy()
+        weights = np.exp(applied - applied.max())
         out[i] = weights @ P[:, i] / weights.sum()
         loglik += np.log(P[:, i] if y[i] == 1 else 1 - P[:, i])
     return out
