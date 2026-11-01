@@ -36,6 +36,30 @@ only.
 
 ## Log
 
+### 2026-11-01 · RESULT (external test, S1 Beijing): the stack beats the own decoder; not the co-adaptive one
+
+Pre-registered in 484842c and run once with `scripts/s1_combo_external.py`. Data: 49
+patients; results in `results/summary/s1_combo_external.csv`.
+
+| | Hypothesis (k = 5) | Result | One-sided p | Verdict |
+|---|---|---|---|---|
+| H-E1 | `bma` > own | 52.5 → 56.9 % (+4.4); 31 helped, 14 harmed | 0.0027 | **confirmed** |
+| H-E2 | `bma` > `own_sup` | 56.2 → 56.9 % (+0.7); 24/17 | 0.17 | not confirmed |
+| H-E3 | `pooled_unsup_bank` > own | 57.1 % (+4.6); 31/12 | 0.0009 (descriptive) | not tested (sequence stopped at H-E2) |
+
+- **What the results mean:**
+  - At a second hospital, on a different task and in acute patients, the stack still improves
+    on the own decoder.
+  - Its advantage over co-adaptive recalibration of the own decoder does not carry over:
+    `own_sup_bank` alone reached 57.6 %.
+  - Absolute accuracy stays low (57–59 %), because left- vs right-hand imagery in acute
+    stroke carries little signal (Section "S1 deep-dive").
+  - The roughly 89 % results are therefore specific to imagery-versus-rest paradigms in
+    chronic patients at Tianjin.
+- **Descriptive:**
+  - k = 5: `pooled_bank` 56.0, `own_sup_bank` 57.6, `pooled_sup_bank` 56.6.
+  - k = 10: own 56.6, `bma` 58.3.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: combination study, round 3 (exploratory, dev only)
 
 - **Why:** the user asked whether the stack can go further, toward 90 %+.
