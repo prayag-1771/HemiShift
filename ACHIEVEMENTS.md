@@ -36,6 +36,47 @@ only.
 
 ## Log
 
+### 2026-11-01 · DECLARED BEFORE RUNNING: combination study (exploratory; S3 dev and S4)
+
+- **Why:** each confirmed gain is a few points. This study asks whether they add up, and
+  tries new ways of combining them.
+- **Data:**
+  - S3 dev: 16 patients, pre / post / follow-up.
+  - S4: 27 patients, pre / post / follow-up. Its confirmatory tests are spent (2026-10-31),
+    so S4 now counts as development data.
+  - The S1 and S3 locked tests are not touched.
+- **Status:** every result here is exploratory. A combination found here can only be
+  confirmed on fresh data (UET175 or another untouched cohort), under a new pre-registration.
+- **Protocol:** unchanged.
+  - The first k pairs (S3) or the first k trials per class (S4) calibrate; k = 5 is primary,
+    10 secondary.
+  - Every decoder is scored on the same test trials.
+  - Online decoders take the test trials in recording order. A trial's cue label is used
+    only after that trial has been decoded.
+- **Candidates, fixed before running:**
+  - *Static:* own, pooled and the mu / low-beta / high-beta bank, on the 14-channel template
+    or the 28-channel central strip. In later sessions also: earlier sessions, earlier
+    sessions + other patients, and the no-label decoder, each with the bank.
+  - *Online, supervised:* co-adaptive versions of the above, refitted before each test trial.
+  - *Online, unsupervised:* running re-centring on every epoch seen so far (labels from
+    calibration only, or none at all).
+  - *New: population-prior LR.* The patient's decoder is fitted with an L2 penalty that
+    pulls its weights toward the donors' decoder, instead of pooling samples. Online, the
+    prior keeps a fixed weight while the patient's own labelled trials accumulate.
+  - *New: online Bayesian model averaging* over decoders. Weights are updated by each
+    decoded trial's log-loss under its cue label.
+  - *Crop augmentation:* covariances of 2-s sub-windows as extra calibration samples.
+- **Baselines:**
+  - own (8–30 Hz, 14 channels, P3);
+  - the best confirmed decoder: the pooled bank, and earlier sessions in later sessions.
+- **Selection without hindsight:**
+  - leave-one-patient-out within each cohort;
+  - across cohorts: pick on S3 dev and report on S4, and the reverse.
+- **Reporting:** every candidate, with mean gain, helped/harmed and two-sided Wilcoxon p,
+  Holm-corrected over the candidates of each cohort and setting.
+- **Channels:** motor area only (14-channel template or 28-channel central strip). 59-channel
+  numbers are descriptive only, because non-motor channels carry eye and visual signal.
+
 ### 2026-10-31 · CORRECTION: floating-point ties in the Wilcoxon tests; p-values recomputed
 
 - **The error:**
