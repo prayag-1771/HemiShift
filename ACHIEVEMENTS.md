@@ -36,6 +36,20 @@ only.
 
 ## Log
 
+### 2026-11-01 · AUDIT RESULT 2: shuffled labels; every combination decoder falls to chance
+
+`audit_combo.py permute` shuffles the labels within every patient-session (target, donors and
+earlier sessions alike) and reruns rounds 1 and 2 unchanged: S3 dev with pair-wise updates,
+and S4 (`results/summary/audit_permute_{s3,s4}.csv`). Any leak of labels, trial order or test
+data would keep a decoder above 50 %.
+
+- **S3 dev** (16 patients, 3 sessions; 27 decoders): means 47.0–50.3 % at k = 5 and
+  47.1–51.7 % at k = 10. `bma` scores 48.5 / 50.1 (91.0 with the real labels).
+- **S4** (27 patients, 3 sessions): means 48.0–50.7 % at k = 5 and 47.5–50.6 % at k = 10.
+  `bma` scores 49.1 / 49.3 (80.3 with the real labels).
+- **Verdict:** every decoder is at chance. The gains come from the labelled EEG, not from
+  the pipeline.
+
 ### 2026-11-01 · AUDIT RESULT 1: pair-wise updates; all six locked-test verdicts stand, H-C3's margin is corrected to +3.0
 
 Updating the online decoders only between (rest, MI) pairs (`audit_combo.py pairs`;
