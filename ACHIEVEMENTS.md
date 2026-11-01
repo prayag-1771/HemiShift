@@ -47,6 +47,13 @@ data would keep a decoder above 50 %.
   47.1–51.7 % at k = 10. `bma` scores 48.5 / 50.1 (91.0 with the real labels).
 - **S4** (27 patients, 3 sessions): means 48.0–50.7 % at k = 5 and 47.5–50.6 % at k = 10.
   `bma` scores 49.1 / 49.3 (80.3 with the real labels).
+- **Per setting** (first or later sessions × k; script log): the highest decoder is 48.9–52.9 %.
+  - **One small p-value:** the plain `pooled` decoder in S4's later sessions at k = 10 scores
+    52.3 % (two-sided p 0.007 vs 50 %).
+  - **Why it is chance:** it is the highest of 27 decoders in that setting, among 216
+    decoder × setting checks (0.007 × 27 ≈ 0.19). It is also not a combination decoder. A
+    single shuffle was run.
+  - **Every other setting's highest decoder:** p ≥ 0.05.
 - **Verdict:** every decoder is at chance. The gains come from the labelled EEG, not from
   the pipeline.
 
