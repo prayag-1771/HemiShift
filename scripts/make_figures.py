@@ -10,6 +10,8 @@ Writes paper/figures/fig{1..6}_*.pdf (and .png previews).
   fig7  S4 pre-registered replication: pooling, band bank, earlier sessions, no labels
   fig8  S3 sweep gains in two sessions, artifact controls before and after ICA cleaning,
         and the locked-test sensitivity analysis on cleaned data
+  fig9  The combination study: gains adding up on dev data (S3, S4, S3 cleaned) and the
+        pre-registered locked-test confirmation
 
 Usage: .venv/Scripts/python -I scripts/make_figures.py
 """
@@ -399,6 +401,67 @@ def fig8():
     save(fig, "fig8_robustness")
 
 
+LADDER = {  # setting: (decoder, label) from the patient's own decoder to the full stack
+    "pre": (("own", "own"), ("pooled_bank", "+ others,\nband bank"), ("pooled_unsup_bank", "+ online\nre-centring"),
+            ("pooled_sup_bank", "+ cue labels\n(co-adaptive)"), ("bma", "+ model\naveraging")),
+    "later": (("own", "own"), ("prevoth_bank28", "+ own past,\nothers, bank"),
+              ("prevoth_unsup_bank28", "+ online\nre-centring"), ("prevoth_sup_bank28", "+ cue labels\n(co-adaptive)"),
+              ("bma", "+ model\naveraging")),
+}
+
+
+def combo_table(name):
+    table = read(name)
+    second = SUMMARY / f"{name}_r2.csv"
+    if second.exists():
+        table = table.merge(pd.read_csv(second), on=["session", "subject", "k"], how="left")
+    return table
+
+
+def per_setting(table, setting, k=5):
+    t = table[table.k == k]
+    if setting == "pre":
+        return t[t.session == "pre"].set_index("subject")
+    return t[t.session.isin(["post", "follow"])].groupby("subject").mean(numeric_only=True)
+
+
+def fig9():
+    cohorts = {"S3 dev": combo_table("combo_s3"), "S4": combo_table("combo_s4"),
+               "S3 dev, ICA-cleaned": combo_table("combo_s3clean")}
+    styles = {"S3 dev": (POOLED, "o", "-"), "S4": (BANK, "s", "-"), "S3 dev, ICA-cleaned": (POOLED, "o", ":")}
+    locked = read("s3_locked_combo")
+    fig, axes = plt.subplots(1, 4, figsize=(7.2, 2.9), gridspec_kw={"width_ratios": [1.5, 1.5, 0.8, 0.8]})
+    for ax, (setting, title) in zip(axes[:2], (("pre", "a  First session"), ("later", "b  Returning patients"))):
+        steps = LADDER[setting]
+        for name, table in cohorts.items():
+            t = per_setting(table, setting)
+            means = [t[d].mean() for d, _ in steps]
+            color, marker, ls = styles[name]
+            ax.plot(range(len(steps)), means, color=color, marker=marker, ls=ls, ms=4, lw=1.2,
+                    label=f"{name} (n = {len(t)})")
+            ax.text(len(steps) - 0.85, means[-1], f"+{means[-1] - means[0]:.1f}", va="center", fontsize=6.5,
+                    color=color, fontweight="bold")
+        ax.axvspan(2.5, len(steps) - 0.5, color="#f3f4f6", zorder=0)
+        ax.text(3.5, 0.03, "needs cue labels\nduring the session", transform=ax.get_xaxis_transform(),
+                ha="center", fontsize=5.8, color="#6b7280")
+        ax.set_xticks(range(len(steps)), [label for _, label in steps], fontsize=5.8)
+        ax.set_xlim(-0.3, len(steps) - 0.3)
+        ax.set_ylim(62, 95)
+        ax.set_title(title)
+    axes[0].set_ylabel("mean accuracy (%), k = 5")
+    axes[0].legend(frameon=False, fontsize=5.8, loc="upper left")
+    for ax, (setting, title) in zip(axes[2:], (("pre", "c  Locked, first"), ("later", "d  Locked, returning"))):
+        t = per_setting(locked, setting)
+        p = one_sided(t["bma"] - t["own"])
+        paired(ax, t["own"], t["bma"], ["own", "stack"], (OWN, PREVIOUS), f"{title} (n = {len(t)})")
+        ax.set_ylim(40, 101)
+        ax.text(0.5, 0.02, f"p = {p:.3f}", transform=ax.transAxes, ha="center", va="bottom", fontsize=6.3,
+                color="#374151")
+    axes[2].set_ylabel("held-out accuracy (%), k = 5")
+    fig.tight_layout(w_pad=1.2)
+    save(fig, "fig9_combination")
+
+
 def main():
     fig1()
     fig2()
@@ -411,6 +474,8 @@ def main():
         fig7()
     if (SUMMARY / "s3_locked_sensitivity.csv").exists():
         fig8()
+    if (SUMMARY / "s3_locked_combo.csv").exists():
+        fig9()
 
 
 if __name__ == "__main__":
