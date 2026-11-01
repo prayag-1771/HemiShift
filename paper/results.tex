@@ -2,7 +2,7 @@
 
 \begin{table}[t]
 \centering
-\caption{Pre-registered confirmatory analyses on locked test patients and on the replication cohort S4. Each was committed to the version-controlled results log (commit shown) before the patients were loaded, and run once. S4: one-sided Wilcoxon tests in a fixed sequence, H-R2 to H-R4 Holm-corrected. H-C1 to H-C6: one-sided Wilcoxon tests in a fixed sequence at $\alpha = 0.05$, on the eight S3 locked patients; ``later'' is each patient's mean over the post-treatment and follow-up sessions. With eight patients the smallest attainable $p$ is 0.0039.}
+\caption{Pre-registered confirmatory analyses on locked test patients and on the replication cohort S4. Each was committed to the version-controlled results log (commit shown) before the patients were loaded, and run once. S4: one-sided Wilcoxon tests in a fixed sequence, H-R2 to H-R4 Holm-corrected. H-C1 to H-C6: one-sided Wilcoxon tests in a fixed sequence at $\alpha = 0.05$, on the eight S3 locked patients; ``later'' is each patient's mean over the post-treatment and follow-up sessions. With eight patients the smallest attainable $p$ is 0.0039. H-E1 to H-E3: the same test on all 49 usable S1 patients, which earlier analyses had used, so all were tested together.}
 \label{tab:prereg}
 \small
 \begin{tabularx}{\linewidth}{@{}p{3.6cm} l X l@{}}
@@ -11,17 +11,23 @@ Hypothesis (committed) & Patients & Result & Verdict \\
 \midrule
 S3: pooling other patients beats the own decoder at $k = 5$ pairs (\texttt{d916f30}, 24 Oct 2026) & 8 & 77.1\pct{} $\rightarrow$ 81.4\pct{} (+4.3 points); 7 helped, 1 harmed; one-sided Wilcoxon $p = 0.047$$^a$. Secondary, $k = 10$: +2.1 points, $p = 0.17$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C1: the combined decoder with online model averaging beats the own decoder, first session (\texttt{ec5cd82}, 1 Nov 2026) & 8 & 77.1\pct{} $\rightarrow$ 88.7\pct{} (+11.6 points); 8 helped, 0 harmed; $p = 0.0039$ & \textbf{confirmed} \\
+S3, H-C1: the combined decoder with online model averaging beats the own decoder, first session (\texttt{ec5cd82}, 1 Nov 2026) & 8 & 77.1\pct{} $\rightarrow$ 88.7\pct{} (+11.6 points); 8 helped, 0 harmed; $p = 0.0039$. Pair-wise updates$^b$: 89.1\pct{} (+12.0), $p = 0.0039$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C2: the same, later sessions & 8 & 75.9\pct{} $\rightarrow$ 88.1\pct{} (+12.2); 8 helped, 0 harmed; $p = 0.0039$ & \textbf{confirmed} \\
+S3, H-C2: the same, later sessions & 8 & 75.9\pct{} $\rightarrow$ 88.1\pct{} (+12.2); 8 helped, 0 harmed; $p = 0.0039$. Pair-wise: 87.9\pct{} (+12.0), $p = 0.0039$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C3: the combined decoder beats co-adaptive recalibration of the own decoder, first session & 8 & 83.5\pct{} $\rightarrow$ 88.7\pct{} (+5.2); 7 helped, 1 harmed; $p = 0.020$ & \textbf{confirmed} \\
+S3, H-C3: the combined decoder beats co-adaptive recalibration of the own decoder, first session & 8 & 83.5\pct{} $\rightarrow$ 88.7\pct{} (+5.2); 7 helped, 1 harmed; $p = 0.020$. Pair-wise: 86.0\pct{} $\rightarrow$ 89.1\pct{} (+3.0), 7 helped, 1 harmed, $p = 0.047$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C4: earlier sessions + other patients + online re-centring, no labels after calibration, beat the own decoder, later sessions & 8 & 75.9\pct{} $\rightarrow$ 87.7\pct{} (+11.9); 8 helped, 0 harmed; $p = 0.0039$ & \textbf{confirmed} \\
+S3, H-C4: earlier sessions + other patients + online re-centring, no labels after calibration, beat the own decoder, later sessions & 8 & 75.9\pct{} $\rightarrow$ 87.7\pct{} (+11.9); 8 helped, 0 harmed; $p = 0.0039$. Pair-wise: 87.4\pct{} (+11.5), $p = 0.0039$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C5: the earlier sessions' decoder with online re-centring and no labels at all beats the own decoder with five labelled pairs, later sessions & 8 & 75.9\pct{} $\rightarrow$ 84.2\pct{} (+8.4); 8 helped, 0 harmed; $p = 0.0039$ & \textbf{confirmed} \\
+S3, H-C5: the earlier sessions' decoder with online re-centring and no labels at all beats the own decoder with five labelled pairs, later sessions & 8 & 75.9\pct{} $\rightarrow$ 84.2\pct{} (+8.4); 8 helped, 0 harmed; $p = 0.0039$. Pair-wise: 83.8\pct{} (+7.9), $p = 0.0039$ & \textbf{confirmed} \\
 \addlinespace
-S3, H-C6: other patients + band bank + online re-centring, no labels after calibration, beat the own decoder, first session & 8 & 77.1\pct{} $\rightarrow$ 85.8\pct{} (+8.7); 7 helped, 1 harmed; $p = 0.0078$ & \textbf{confirmed} \\
+S3, H-C6: other patients + band bank + online re-centring, no labels after calibration, beat the own decoder, first session & 8 & 77.1\pct{} $\rightarrow$ 85.8\pct{} (+8.7); 7 helped, 1 harmed; $p = 0.0078$. Pair-wise: unchanged & \textbf{confirmed} \\
+\addlinespace
+S1, H-E1: the combined decoder (14 channels, pair-wise updates) beats the own decoder at a second hospital, five trials per hand (\texttt{484842c}, 1 Nov 2026) & 49 & 52.5\pct{} $\rightarrow$ 56.9\pct{} (+4.4); 31 helped, 14 harmed; $p = 0.0027$ & \textbf{confirmed} \\
+\addlinespace
+S1, H-E2: the same beats co-adaptive recalibration of the own decoder & 49 & 56.2\pct{} $\rightarrow$ 56.9\pct{} (+0.7); 24 helped, 17 harmed; $p = 0.17$ & not confirmed \\
+\addlinespace
+S1, H-E3: other patients + band bank + online re-centring, no labels after calibration, beat the own decoder & 49 & 52.5\pct{} $\rightarrow$ 57.1\pct{} (+4.6); descriptive $p = 0.0009$ & not tested (sequence stopped) \\
 \addlinespace
 S4, H-R1: the same pooling, replicated (\texttt{d0800e8}, 31 Oct 2026) & 27 & 69.1\pct{} $\rightarrow$ 70.8\pct{} (+1.6, 95\pct{} CI +0.2 to +3.1); 14 helped, 6 harmed; $p = 0.019$ & \textbf{confirmed} \\
 \addlinespace
@@ -38,6 +44,7 @@ S1: patients passed by a 20-trial calibration screen decode later trials better 
 \end{tabularx}
 
 \raggedright\footnotesize $^a$First logged as $p = 0.035$; floating-point noise had separated equal accuracy differences that should have been tied (Section~\ref{sec:pitfalls}). The decision is unchanged.
+$^b$Audit (Section~\ref{sec:audit}): online decoders and averaging weights updated only between (rest, imagery) pairs, so that no update carries a trial's position in S3's alternating sequence. The pre-registered runs updated after every trial.
 \end{table}
 
 \subsection{The published S1 baselines are not reproducible, and the S1 signal is weak}
@@ -184,12 +191,22 @@ Descriptively:
 \paragraph{Confirmation on the locked patients.} All six pre-registered hypotheses held (Table~\ref{tab:prereg}, Figure~\ref{fig:combo}c,d).
 \begin{itemize}
   \item With co-adaptive updating and model averaging, accuracy rose from 77.1\pct{} to 88.7\pct{} in the first session and from 75.9\pct{} to 88.1\pct{} in later sessions. Every patient improved in both settings.
-  \item In the first session the stack beat co-adaptive recalibration of the own decoder by 5.2 points (7 of 8 patients).
+  \item In the first session the stack beat co-adaptive recalibration of the own decoder by 5.2 points (7 of 8 patients). The audit below lowered this margin to 3.0 points.
   \item Without labels after calibration, returning patients reached 87.7\pct{} (+11.9 points, 8 of 8) and first-session patients 85.8\pct{} (+8.7, 7 of 8).
   \item With no labels at all in the later session, the earlier sessions' decoder with online re-centring reached 84.2\pct{}, 8.4 points above the own decoder with five labelled pairs (8 of 8).
   \item With ten calibration pairs, the full stack gained 7.7 points in the first session and 12.5 in later sessions, again for every patient.
 \end{itemize}
 The declared sensitivity analysis on the authors' ICA-cleaned recordings of the same patients gave the same verdicts for all six hypotheses (one-sided $p = 0.004$--$0.039$). The full stack gained 10.6 points in the first session (7 of 8 patients) and 12.8 in later sessions (8 of 8). It beat co-adaptive recalibration of the own decoder by 4.9 points. The no-label stacks gained 12.4 (returning, no labels after calibration), 9.5 (no labels at all) and 6.9 points (first session).
+
+\paragraph{Audits.}\label{sec:audit} The declared leakage and overfitting audit left every verdict standing.
+\begin{itemize}
+  \item \textbf{Trial order.} S3's trials alternate between rest and imagery, so an update after every trial can carry a trial's position in the sequence. With updates only between (rest, imagery) pairs, the stack gained 12.0 points in the first session and 12.0 in later sessions (both $p = 0.0039$), and all six hypotheses held, on raw and on cleaned recordings (Table~\ref{tab:prereg}). Per-trial updating had handicapped co-adaptive recalibration of the own decoder: just before each imagery trial it had learned the label of the paired rest trial. Updated pair-wise, it reached 86.0\pct{} instead of 83.5\pct{}. The stack's honest margin over it is therefore 3.0 points (7 of 8 patients, $p = 0.047$), and 2.6 points on the cleaned recordings ($p = 0.016$).
+  \item \textbf{Shuffled labels.} With every patient's labels shuffled within each session, donors included, all 27 decoders scored 47--52\pct{} on the S3 development patients and on S4. Model averaging scored 48.5\pct{} and 49.1\pct{}, against 91.0\pct{} and 80.3\pct{} with the true labels. The smallest $p$-value against 50\pct{}, 0.007 (single-band pooling, S4 later sessions, 52.3\pct{}), came from the highest of 27 decoders in one of 216 decoder-by-setting checks, which chance explains.
+  \item \textbf{Shared patients.} Two locked S3 patients may also appear in S4: they match an S4 patient in age, sex and lesion side, and covariance fingerprints could not settle it. Without them, all six hypotheses still held ($p = 0.016$ each, 6 of 6 patients helped).
+  \item \textbf{Causality.} Unit tests confirm that each online decision depends only on earlier trials and labels, and, with pair-wise updates, only on complete earlier pairs.
+\end{itemize}
+
+\paragraph{A second hospital.} Applied unchanged to all 49 usable S1 patients, with a different hospital, amplifier, stage (acute) and task (affected- versus unaffected-hand imagery), the stack with pair-wise updates beat the own decoder with five calibration trials per hand: 52.5\pct{} $\rightarrow$ 56.9\pct{} (+4.4 points; 31 helped, 14 harmed; $p = 0.0027$; H-E1). It did not beat co-adaptive recalibration of the own decoder, which reached 56.2\pct{} on its own (+0.7, $p = 0.17$; H-E2), and this stopped the fixed sequence. The no-label stack scored 57.1\pct{} (+4.6 points, descriptive $p = 0.0009$; H-E3, not tested). With ten trials per hand the gain shrank to 1.6 points ($p = 0.14$). On this weak left--right signal, the stack helped with very short calibration, and co-adaptive recalibration alone delivered most of that help.
 
 \begin{figure}[t]
 \centering
@@ -239,7 +256,7 @@ Streaming each S3 locked test patient's raw recording through the online pipelin
 
 Across three stroke cohorts and four ways of borrowing data, only real stroke recordings helped a patient with few calibration trials: other patients' recordings, and the patient's own earlier sessions. Pooling other patients into a re-centred Riemannian decoder lifted accuracy with five rest--imagery pairs on never-seen patients, to what the patient's own decoder needed ten pairs for, and the gain replicated in a new cohort with a different limb and trial design. Splitting the decoder's band into mu, low-beta and high-beta covariances added further accuracy in that replication. For a returning patient, the earlier sessions helped most at follow-up, months later, and without any new labels they matched five labelled calibration pairs. Healthy recordings did not help in any form: as pretraining for a deep network, as donors for the Riemannian decoder, transformed by a physiology-based simulator in six variants, or distilled into a foundation model.
 
-The sources of real data, and the ways of adapting to them, add up. Stacked in one decoder with online re-centring, co-adaptive updating and online model averaging, they raised accuracy on eight never-used patients by about 12 points, from 76--77\pct{} to 88--89\pct{}, in the first session and when the patients returned, and every patient improved. Co-adaptive recalibration on its own is an established technique \citep{vidaurre2011}. The pre-registered comparison with it isolates what the transfer methods add on top of it, about 5 points in the first session. For clinical use, two results matter more than the headline. Without any labels after calibration, the stack still gained about 12 points for returning patients, so a self-paced session that cannot rely on cues would benefit too. With no labels at all in a returning session, the patient's earlier sessions and online re-centring beat a fresh five-pair calibration by 8 points, so from the second session on, labelled calibration can be skipped.
+The sources of real data, and the ways of adapting to them, add up. Stacked in one decoder with online re-centring, co-adaptive updating and online model averaging, they raised accuracy on eight never-used patients by about 12 points, from 76--77\pct{} to 88--89\pct{}, in the first session and when the patients returned, and every patient improved. Co-adaptive recalibration on its own is an established technique \citep{vidaurre2011}. The pre-registered comparison with it isolates what the transfer methods add on top of it: about 3 points in the first session once the updates no longer carried the trial order, and nothing significant at a second hospital, where the left--right signal was weak. For clinical use, two results matter more than the headline. Without any labels after calibration, the stack still gained about 12 points for returning patients, so a self-paced session that cannot rely on cues would benefit too. With no labels at all in a returning session, the patient's earlier sessions and online re-centring beat a fresh five-pair calibration by 8 points, so from the second session on, labelled calibration can be skipped.
 
 Why do real patients help when healthy participants do not? Re-centring removes each domain's average covariance, so what remains to transfer is the direction that separates imagery from rest. Healthy and stroke brains, recorded with different equipment and paradigms, differ in that direction more than stroke patients differ from each other (Section~\ref{sec:neuro}). LesionSim edits a few envelope statistics of healthy data, such as lesioned-side attenuation, contralesional shift and trial-to-trial variability. Even with learned settings this moved the healthy donors less than a quarter of the way toward real patients, and the patients it was meant to imitate did not show the assumed weaker lesioned-side desynchronisation. The same argument explains why a patient's own earlier sessions transfer so well: the direction is the patient's own, and decodability was stable across the study period (Section~\ref{sec:neuro}). The practical conclusion is to pool real patient data across hospitals rather than synthesise it, to keep each patient's recordings from session to session, and to share stroke recordings in harmonised form.
 
@@ -251,9 +268,10 @@ Several evaluation pitfalls produced effects as large as the method differences 
 
 \paragraph{Limitations.}
 \begin{itemize}
-  \item The locked test sets are small (8 and 15 patients). The S3 pooling confirmation rests on a one-sided test at $p = 0.047$, close to the threshold. The S1 locked set was used for two pre-registered analyses and the S3 locked set for three, each with hypotheses committed beforehand. The combination study was confirmed on those eight S3 patients only, all from one site, and its development used S4 after S4's own confirmatory tests.
+  \item The locked test sets are small (8 and 15 patients). The S3 pooling confirmation rests on a one-sided test at $p = 0.047$, close to the threshold. The S1 locked set was used for two pre-registered analyses and the S3 locked set for three, each with hypotheses committed beforehand. The combination study was confirmed on those eight S3 patients, all from one site, and its development used S4 after S4's own confirmatory tests. At a second hospital (S1) it beat the own decoder but not co-adaptive recalibration.
+  \item The pre-registered combination runs updated the decoders after every trial. In S3's alternating sequence this carried the trial order and handicapped co-adaptive recalibration of the own decoder. With pair-wise updates the stack's margin over it is 3.0 points, not 5.2.
   \item The largest gains need the cue label of every trial during the session. A cue-based rehabilitation session has these labels, but a self-paced one does not. There, the no-label stacks apply. Some of their gains were smaller on cleaned development recordings, although all held on the cleaned locked recordings.
-  \item The replication cohort comes from the same institution and amplifier family as S3, and some patients may appear in both. It replicates the method on new recordings, a new limb and a new trial design, but not at a new site.
+  \item The replication cohort comes from the same institution and amplifier family as S3, and some patients may appear in both. Without the two locked S3 patients who may also be in S4, all six combination hypotheses still held. It replicates the method on new recordings, a new limb and a new trial design, but not at a new site.
   \item On ICA-cleaned recordings, the confirmed single-band pooling gain shrank to 1.6 points on the locked patients, while the band-bank variant kept its gain. The S4 confirmations used raw recordings, as pre-registered.
   \item Imagery-versus-rest decoding in these paradigms partly reflects non-motor engagement (eye movements, posterior alpha). Co-adaptive recalibration is an established technique; we claim only what the transfer methods add to it.
   \item All analyses are offline. The real-time system replays recordings rather than closing the loop with patients, and no clinical outcome was measured.
