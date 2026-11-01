@@ -78,6 +78,59 @@ only.
 - **Rules:** nothing in the decoders or settings changes after this commit. Any later change
   needs fresh data.
 
+### 2026-11-01 · RESULT (exploratory): combination study, rounds 1 and 2, S3 dev and S4
+
+Written up after the pre-registration above. The per-patient results were committed before it
+(31d1724, e6209f9, ec5cd82): `results/summary/combo_<cohort>[_r2].csv`. Mean accuracy at
+k = 5, with the gain over own and helped/harmed:
+
+| Decoder | Needs during the session | S3 pre | S4 pre | S3 later | S4 later |
+|---|---|---|---|---|---|
+| own (baseline) | – | 81.7 | 69.1 | 79.5 | 67.4 |
+| `pooled_bank` (H-R2) | – | 86.6 (+4.9) | 73.1 (+3.9) | 83.7 | 70.9 |
+| `prevoth_bank28` | – | | | 87.5 (+8.0, 14/1) | 75.4 (+8.0, 19/4) |
+| `pooled_unsup_bank` | – (re-centres on unlabelled trials) | 88.2 (+6.5, 13/0) | 74.4 (+5.3, 22/4) | 85.3 | 72.4 |
+| `prevoth_unsup_bank28` | – (re-centres) | | | 88.3 (+8.8, 15/0) | 77.2 (+9.8, 20/3) |
+| `prevzero_unsup_bank` | nothing: no labels at all | | | 85.7 (+6.2, 15/0) | 73.6 (+6.2, 16/5) |
+| `own_sup` (known co-adaptive) | cue labels | 87.3 (+5.7) | 75.2 (+6.1) | 84.5 (+5.0) | 73.0 (+5.5) |
+| `pooled_sup_bank` | cue labels | 90.4 (+8.7, 13/1) | 79.5 (+10.4, 25/1) | 87.3 | 76.6 |
+| `prevoth_sup_bank28` | cue labels | | | 89.9 (+10.4, 15/0) | 79.1 (+11.6, 21/2) |
+| `bma` | cue labels | **91.0 (+9.3, 14/1)** | **80.3 (+11.2, 26/1)** | **89.7 (+10.3, 16/0)** | **79.1 (+11.6, 21/1)** |
+
+- **The gains add up.** With cue labels arriving during the session, the stacks gain 9–12
+  points over the own decoder in both cohorts.
+- **Beyond the known co-adaptive method.** `bma` beats `own_sup` by:
+  - S3 pre +3.7 (13/2), S3 later +5.3 (14/1);
+  - S4 pre +5.1 (24/3), S4 later +6.1 (20/3).
+  - In S4, the bank alone adds +3.4 under co-adaptation.
+- **Without labels during the session:**
+  - For returning patients, the stack of earlier sessions + other patients + 28 channels +
+    online re-centring gains 9–10 points.
+  - The no-label decoder from earlier sessions alone (`prevzero_unsup_bank`) beats the
+    5-pair own decoder by 6 points in both cohorts.
+- **Selection without hindsight agrees:**
+  - Leave-one-patient-out picks score within 1 point of the best decoder.
+  - Picks made on S3 score on S4: +11.2 (pre) and +11.6 (later) with cue labels; +5.3 and
+    +9.8 without labels.
+  - Picks made on S4 score on S3: +9.3 and +10.3 with cue labels.
+- **Failed:**
+  - `prior_bank` and `prior_sup_bank` (empirical-Bayes prior LR) were worse than pooling
+    trials in every setting.
+  - Sub-window crops gave no gain.
+  - Label-free decoders that add other patients (`prevothzero_*`) were weak on S4 (+2 to +3).
+  - Second round (`combo_posthoc.py`): unsupervised bias adaptation adds less than 1 point;
+    plain probability averages do not beat `bma`.
+- **ICA-cleaned S3 release** (dev; `combo_s3clean.csv`):
+  - The co-adaptive stacks keep most of their gain: `bma` +6.2 (pre, 14/1) and +7.4 (later,
+    16/0); `prevoth_sup_bank28` +8.6 (later, 15/1).
+  - The no-label stacks keep about half: `pooled_unsup_bank` +3.5, `prevoth_bank28` +3.8,
+    `prevzero_unsup_bank` +3.8.
+  - Part of their raw gain is probably artifact-related.
+  - The exception is round 2's `prevoth_unsup_bank28` (later sessions, no labels after
+    calibration), which keeps +7.3 (15/1) of its raw +8.8.
+- **Caveat:** all of this is exploratory, and S4 was used before (2026-10-31). The
+  confirmation is the locked-test run pre-registered above.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: artifact check of the combination study (S3 dev, ICA-cleaned)
 
 - **Why:** round 1 found co-adaptive bank stacks 9–12 points above the own decoder in both
