@@ -36,6 +36,30 @@ only.
 
 ## Log
 
+### 2026-11-01 · AUDIT RESULT 3: strictly chronological calibration (S4); every combination gain holds
+
+P3 calibrates on the first k trials of each class. In S4's randomised order, some test trials
+then precede the last calibration trial. `audit_combo.py chrono` instead calibrates on every
+trial up to the one that completes k per class, so no test trial precedes a calibration trial.
+It reruns rounds 1 and 2 on S4 (`results/summary/audit_chrono_s4.csv`; k = 5; test trials per
+patient-session 71.5 → 70.3 first session, 70.7 → 69.7 later).
+
+- **Mean accuracy, original → chronological:**
+  - First session: `bma` 80.3 → 80.6, `pooled_sup_bank` 79.5 → 79.7, `pooled_unsup_bank`
+    74.4 → 74.8, `own_sup` 75.2 → 75.2, own 69.1 → 67.0.
+  - Later sessions: `bma` 79.1 → 79.1, `prevoth_sup_bank28` 79.1 → 79.0,
+    `prevoth_unsup_bank28` 77.2 → 77.2, `prevzero_unsup_bank` 73.6 → 73.6, own 67.4 → 67.2.
+- **Margins, original → chronological (one-sided Wilcoxon):**
+  - `bma` vs own: +11.2 → +13.6 first session (27/27, p 3e-6); +11.6 → +11.9 later (22/23,
+    p 8e-7).
+  - `bma` vs `own_sup`: +5.1 → +5.4 (26/27) and +6.1 → +6.2 (20/23).
+  - No-label stacks vs own: +5.3 → +7.8 (`pooled_unsup_bank`, first session) and
+    +9.8 → +10.0 (`prevoth_unsup_bank28`, later).
+- **Verdict:** no gain came from test trials that preceded calibration trials. Only the
+  own decoder drops slightly (its calibration set becomes class-imbalanced). The run used the
+  faster, bit-identical code of commit 0885d53. A first run was lost to a machine freeze and
+  reboot at 19:36; this rerun saved each patient-session as it finished.
+
 ### 2026-11-01 · AUDIT RESULT 2: shuffled labels; every combination decoder falls to chance
 
 `audit_combo.py permute` shuffles the labels within every patient-session (target, donors and
