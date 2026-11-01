@@ -17,7 +17,23 @@ All of them are re-centred Riemannian tangent space + logistic regression, as in
 s3_augment.pooled_proba) from 8-30 Hz covariances.
 """
 
-import numpy as np
+import os
+import sys
+
+class _NoTorch:
+    """Import hook: `import torch` raises ImportError, so pyriemann skips its optional torch
+    backend (about 400 MB per process, unused here). Set in the parallel workers only."""
+
+    def find_spec(self, name, path=None, target=None):
+        if name == "torch" or name.startswith("torch."):
+            raise ImportError("torch is disabled in this worker (HEMISHIFT_NO_TORCH)")
+        return None
+
+
+if os.environ.get("HEMISHIFT_NO_TORCH") and "torch" not in sys.modules:
+    sys.meta_path.insert(0, _NoTorch())
+
+import numpy as np  # noqa: E402
 from pyriemann.tangentspace import TangentSpace
 from pyriemann.utils.base import invsqrtm
 from pyriemann.utils.mean import mean_riemann

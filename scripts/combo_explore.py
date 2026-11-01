@@ -363,6 +363,7 @@ def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False)
                                       {k: split(cohort, y, k, chrono) for k in KS}, others, others_C,
                                       crops, prior[s], previous, block)
 
+    os.environ["HEMISHIFT_NO_TORCH"] = "1"  # workers spawned from here skip torch (hemishift.models.combo)
     rows, probs = [], {}
     for r, p in Parallel(n_jobs=jobs, return_as="generator")(tasks()):
         rows += r

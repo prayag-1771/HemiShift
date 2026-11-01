@@ -36,6 +36,34 @@ only.
 
 ## Log
 
+### 2026-11-01 · PRE-REGISTRATION: the combination decoders at a second hospital (S1, Beijing; run once)
+
+- **Why:** the combination was confirmed on 8 patients from one hospital, Tianjin. S1 differs
+  in four ways:
+  - hospital and amplifier (a portable 29-channel system);
+  - stage (acute stroke);
+  - task (affected- vs unaffected-hand imagery instead of imagery vs rest);
+  - one session per patient.
+- **Data:** all 49 usable S1 patients, with patient 13 excluded as before.
+  - The combination decoders were never run on S1.
+  - These patients were used for other decoders before (development, and two pre-registered
+    locked-test analyses), so they are tested together, like S4.
+- **Frozen decoders:** `scripts/s1_combo_external.py` with `hemishift.models.combo`, on the
+  14-channel template, because S1 lacks the 28-channel strip.
+  - `bma` averages the 14-channel members of the S3 system: `pooled_bank`, `own_sup_bank`,
+    `pooled_sup_bank` and `prior_sup_bank`.
+  - S1's trials alternate between the hands, so the online decoders and the averaging weights
+    update only between pairs (block = 2).
+- **Protocol:** P3, the first k trials per class; k = 5 primary, 10 descriptive.
+- **Hypotheses:** one-sided Wilcoxon over patients, fixed sequence at α = 0.05.
+  - H-E1: `bma` > own.
+  - H-E2: `bma` > `own_sup` (the known co-adaptive decoder).
+  - H-E3: `pooled_unsup_bank` > own.
+- **Expectation, stated in advance:** S1's left/right signal is weak; standard decoders reach
+  about 55 %. A null result is possible and will be reported as a limit of the method on
+  left/right imagery in acute stroke.
+- **Dry run:** 4 patients with shuffled labels, a code check only.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: leakage and overfitting audit of the combination study
 
 The user asked for proof that the results carry no overfitting and no data leak. Five checks
