@@ -104,6 +104,11 @@ UNSUP, UNSUP_LATER = ("pooled_unsup_bank",), ("prevzero_unsup_bank",)
 R2 = ("pooled_unsup_bank28",)  # round 2 (declared 2026-11-01, after round 1 on S3)
 R2_LATER = ("prevoth_unsup_bank", "prevoth_unsup_bank28", "prevothzero_bank28",
             "prevothzero_unsup_bank28")
+EARLY = tuple(f"{b}@0" for b in BANK)  # 0.5-2.5 s after the cue
+LATE = tuple(f"{b}@3" for b in BANK)  # 2.0-4.0 s after the cue
+R3 = ("pooled_sup_bank_fix", "pooled_sup_bank_hl20", "pooled_sup_bank_all", "pooled_sup_early",
+      "pooled_sup_late", "bma3")  # round 3 (exploratory, dev only)
+R3_LATER = ("prevoth_sup_bank28_fix", "prevoth_sup_bank28_hl20")
 EXPERTS = ("pooled_bank", "pooled_bank28", "own_sup_bank", "pooled_sup_bank", "pooled_sup_bank28",
            "prior_sup_bank")
 EXPERTS_LATER = ("prevoth_bank", "prevoth_bank28", "prevoth_sup_bank", "prevoth_sup_bank28")
@@ -200,7 +205,7 @@ def crops_of(cov):
 def domain_features(cov):
     """Per patient: tangent vectors of every view, re-centred on all its epochs, and the
     sub-window tangent vectors, each band re-centred on the mean over all its sub-windows."""
-    TF = {v: tangent_all(cov[v]) for v in ("830",) + BANK + BANK28}
+    TF = {v: tangent_all(cov[v]) for v in ("830",) + BANK + BANK28 + EARLY + LATE}
     TF["crops"] = crop_features(crops_of(cov))
     return TF
 
@@ -293,6 +298,41 @@ def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, pre
     return rows, probs
 
 
+def run_patient_r3(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1):
+    """Round 3 (exploratory): round 1's decoders recomputed in the same run, then
+      pooled_sup_bank_fix   donors keep the calibration's total weight as labelled trials accrue
+      pooled_sup_bank_hl20  forgetting: labelled trials weigh 0.5 ** (age / 20 trials)
+      pooled_sup_bank_all   donors from the other patients' every session, not only this one
+      pooled_sup_early/late co-adaptive pooled banks on 0.5-2.5 s and 2.0-4.0 s after the cue
+      prevoth_sup_bank28_fix / _hl20   the same two changes to the returning-patient stack
+      bma3                  model averaging over round 1's members and every decoder above"""
+    rows, probs = run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block)
+    for row, (k, (cal, test)) in zip(rows, splits.items()):
+        yt = y[test]
+        p = {
+            "pooled_sup_bank_fix": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block,
+                                          donor_total=len(cal)),
+            "pooled_sup_bank_hl20": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block,
+                                           half_life=20),
+            "pooled_sup_bank_all": online(cov, y, cal, test, BANK, groups=[others["bank_all"]], block=block),
+            "pooled_sup_early": online(cov, y, cal, test, EARLY, groups=[others["early"]], block=block),
+            "pooled_sup_late": online(cov, y, cal, test, LATE, groups=[others["late"]], block=block),
+        }
+        experts = list(EXPERTS)
+        if previous is not None:
+            both28 = [previous["bank28"], others["bank28"]]
+            p["prevoth_sup_bank28_fix"] = online(cov, y, cal, test, BANK28, groups=both28, block=block,
+                                                 donor_total=len(cal))
+            p["prevoth_sup_bank28_hl20"] = online(cov, y, cal, test, BANK28, groups=both28, block=block,
+                                                  half_life=20)
+            experts += EXPERTS_LATER
+        members = [probs[f"{phase}|{s}|{k}|{e}"] for e in experts] + list(p.values())
+        p["bma3"] = bma(members, yt, block)
+        row.update({n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()})
+        probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
+    return rows, probs
+
+
 # ---------- driver ----------
 
 def split(cohort, y, k, chrono=False):
@@ -353,7 +393,11 @@ def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False)
                         for name, views in (("bank", BANK), ("bank28", BANK28))}
                 rest = [o for o in pool[phase] if o != s]
                 others = {name: donor_group(TF[phase], labels[phase], rest, views)
-                          for name, views in (("830", ("830",)), ("bank", BANK), ("bank28", BANK28))}
+                          for name, views in (("830", ("830",)), ("bank", BANK), ("bank28", BANK28),
+                                              ("early", EARLY), ("late", LATE))}
+                every = [donor_group(TF[ph], labels[ph], [o for o in pool[ph] if o != s], BANK)
+                         for ph in SESSIONS if [o for o in pool[ph] if o != s]]
+                others["bank_all"] = (np.vstack([T for T, _ in every]), np.concatenate([y_ for _, y_ in every]))
                 others_C = (np.concatenate([centred(cov[phase][o]["830"]) for o in rest]),
                             np.concatenate([labels[phase][o] for o in rest]))
                 crops = (np.concatenate([TF[phase][o]["crops"] for o in rest]), others["bank"][1])
@@ -481,6 +525,36 @@ def check(cohort, table):
             print(f"check {name}: {a} equals the logged {b} in {100 * same:.0f} % of rows")
 
 
+def report_r3(tables):
+    """Round 3: each new decoder against the own decoder and against round 1's bma, recomputed in
+    the same run; selection without hindsight within the cue-label family."""
+    family = list(FAMILIES["cue labels during the session"]) + list(R3) + list(R3_LATER)
+    best = {}
+    for cohort, table in tables.items():
+        for setting in ("pre", "later"):
+            for k in KS:
+                t = per_setting(table, setting, k)
+                names = [n for n in family if n in t and t[n].notna().all()]
+                print(f"\n=== round 3, {cohort.upper()} {setting}, k = {k}: own {t['own'].mean():.1f} %, "
+                      f"bma {t['bma'].mean():.1f} % ===")
+                for n in sorted(names, key=lambda n: -t[n].mean())[:8]:
+                    d_own, d_bma = clean_differences(t[n] - t["own"]), clean_differences(t[n] - t["bma"])
+                    print(f"  {n:24s} {t[n].mean():5.1f} %  vs own {d_own.mean():+5.1f}  vs bma {d_bma.mean():+5.1f} "
+                          f"({(d_bma > 0).sum()}/{(d_bma < 0).sum()}, p {signed_rank_p(d_bma):.3f})")
+                scores = lopo(t, names)
+                print(f"  honest pick (leave-one-patient-out): {scores.mean():.1f} % "
+                      f"(bma {t['bma'].mean():.1f} %)")
+                best[(cohort, setting, k)] = max(names, key=lambda n: t[n].mean())
+    if len(tables) == 2:
+        print("\n=== round 3 across cohorts ===")
+        for source, target in (("s3", "s4"), ("s4", "s3")):
+            for setting in ("pre", "later"):
+                t = per_setting(tables[target], setting, 5)
+                pick = best[(source, setting, 5)]
+                print(f"  {setting:5s}: best on {source.upper()} = {pick}; on {target.upper()} {t[pick].mean():.1f} % "
+                      f"vs bma {t['bma'].mean():.1f} % ({clean_differences(t[pick] - t['bma']).mean():+.1f})")
+
+
 def load_tables(cohort):
     """Round 1, with round 2's decoders joined in once they exist."""
     table = pd.read_csv(RESULTS_DIR / "summary" / f"combo_{cohort}.csv")
@@ -494,17 +568,28 @@ def load_tables(cohort):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cohort", default="both", choices=("s3", "s4", "s3clean", "both"))
-    parser.add_argument("--round", type=int, default=1, choices=(1, 2))
+    parser.add_argument("--round", type=int, default=1, choices=(1, 2, 3))
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument("--stats-only", action="store_true",
                         help="recompute the report from the saved per-patient results")
     args = parser.parse_args()
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     cohorts = ("s3", "s4") if args.cohort == "both" else (args.cohort,)
-    if not args.stats_only:
-        suffix = "" if args.round == 1 else "_r2"
+    workers = {1: run_patient, 2: run_patient_r2, 3: run_patient_r3}
+    suffix = {1: "", 2: "_r2", 3: "_r3"}[args.round]
+    if args.round == 3:  # its own table: round 1 recomputed with pair-wise updates where trials alternate
+        tables = {}
         for cohort in cohorts:
-            table, probs = run(cohort, args.jobs, run_patient if args.round == 1 else run_patient_r2)
+            out = RESULTS_DIR / "summary" / f"combo_{cohort}_r3.csv"
+            if not args.stats_only:
+                table, _ = run(cohort, args.jobs, run_patient_r3, block=2 if cohort.startswith("s3") else 1)
+                table.to_csv(out, index=False)
+            tables[cohort] = pd.read_csv(out)
+        report_r3(tables)
+        return
+    if not args.stats_only:
+        for cohort in cohorts:
+            table, probs = run(cohort, args.jobs, workers[args.round])
             table.to_csv(RESULTS_DIR / "summary" / f"combo_{cohort}{suffix}.csv", index=False)
             (RESULTS_DIR / "combo").mkdir(parents=True, exist_ok=True)
             np.savez_compressed(RESULTS_DIR / "combo" / f"{cohort}_probs{suffix}.npz", **probs)

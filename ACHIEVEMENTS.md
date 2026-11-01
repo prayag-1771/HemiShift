@@ -36,6 +36,28 @@ only.
 
 ## Log
 
+### 2026-11-01 · DECLARED BEFORE RUNNING: combination study, round 3 (exploratory, dev only)
+
+- **Why:** the user asked whether the stack can go further, toward 90 %+.
+- **Data:** S3 dev and S4 only. The S3 locked patients are not used. They have served three
+  pre-registered analyses, and testing more variants on them would be the overfitting the
+  audit guards against. Any round-3 gain therefore stays exploratory until fresh data
+  arrive.
+- **New decoders:** all co-adaptive with cue labels, recomputed in the same run as round 1.
+  S3 uses pair-wise updates (block = 2) throughout.
+  - `pooled_sup_bank_fix`: donors keep the calibration's total weight as labelled trials
+    accrue, instead of growing with them.
+  - `pooled_sup_bank_hl20`: forgetting; labelled trials weigh 0.5^(age / 20 trials).
+  - `pooled_sup_bank_all`: donors from the other patients' every session.
+  - `pooled_sup_early` and `pooled_sup_late`: co-adaptive pooled banks on 0.5–2.5 s and
+    2.0–4.0 s after the cue.
+  - `prevoth_sup_bank28_fix` and `prevoth_sup_bank28_hl20`: the same two changes to the
+    returning-patient stack.
+  - `bma3`: model averaging over round 1's members and every decoder above.
+- **Reading:** each new decoder is compared with round 1's `bma` from the same run. A change
+  counts as promising only if it beats `bma` in both cohorts and survives cross-cohort
+  selection.
+
 ### 2026-11-01 · PRE-REGISTRATION: the combination decoders at a second hospital (S1, Beijing; run once)
 
 - **Why:** the combination was confirmed on 8 patients from one hospital, Tianjin. S1 differs

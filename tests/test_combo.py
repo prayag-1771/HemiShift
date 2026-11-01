@@ -104,6 +104,25 @@ def test_pairwise_updates_use_only_complete_earlier_pairs():
                        online({"a": C}, y, cal, test, ("a",)))
 
 
+def test_stack_weights_and_fixed_donor_total():
+    T, y = np.zeros((4, 2)), np.array([0, 1, 0, 1])
+    _, _, w = stack(T, y, [(np.zeros((8, 2)), np.zeros(8))], weights=[0.25, 0.5, 1, 1])
+    assert np.isclose(w[4:].sum(), 2.75)  # donors weigh as much as the weighted patient rows
+    _, _, w = stack(T, y, [(np.zeros((8, 2)), np.zeros(8))], donor_total=10)
+    assert np.isclose(w[4:].sum(), 10) and np.allclose(w[:4], 1)
+
+
+def test_forgetting_with_a_huge_half_life_changes_nothing():
+    rng = np.random.default_rng(7)
+    C, y = _patient(rng)
+    cal, test = np.arange(10), np.arange(10, 40)
+    D, y_d = _patient(rng, n=60)
+    groups = [(tangent_all(D), y_d)]
+    base = online({"a": C}, y, cal, test, ("a",), groups=groups)
+    slow = online({"a": C}, y, cal, test, ("a",), groups=groups, half_life=1e9)
+    assert np.allclose(base, slow, atol=1e-4)
+
+
 def test_bma_blocks_update_weights_only_between_blocks():
     y = np.tile([0, 1], 10)
     good = np.where(y == 1, 0.9, 0.1)

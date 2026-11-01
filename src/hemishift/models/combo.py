@@ -67,13 +67,16 @@ def recentred(C, reference, init=None):
     return tangent_space(W @ C @ W, np.eye(C.shape[-1]), metric="riemann"), M
 
 
-def stack(T, y, groups):
-    """Patient rows weigh 1; each donor group together weighs as much as the patient rows."""
-    X, Y, w = [T], [y], [np.ones(len(y))]
+def stack(T, y, groups, weights=None, donor_total=None):
+    """Patient rows weigh `weights` (default 1 each); each donor group together weighs as much
+    as the patient rows, or `donor_total` if given."""
+    weights = np.ones(len(y)) if weights is None else np.asarray(weights, dtype=float)
+    total = weights.sum() if donor_total is None else donor_total
+    X, Y, w = [T], [y], [weights]
     for T_d, y_d in groups:
         X.append(T_d)
         Y.append(y_d)
-        w.append(np.full(len(y_d), len(y) / len(y_d)))
+        w.append(np.full(len(y_d), total / len(y_d)))
     return np.vstack(X), np.concatenate(Y), np.concatenate(w)
 
 
@@ -176,7 +179,8 @@ def crops_static(crops, y, cal, test, donors):
     return p.reshape(len(test), m).mean(axis=1)
 
 
-def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=None, block=1):
+def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=None, block=1,
+           half_life=None, donor_total=None):
     """P(MI) of each test trial in recording order, from a decoder refitted just before it.
     labels: "all" (the calibration and every earlier test trial, by their cue labels) or
     "cal" (the calibration only). The patient is re-centred on the calibration and every
@@ -185,7 +189,10 @@ def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=N
     block: the decoder is updated only at the start of each block of `block` test trials.
     With block = 2 in a paradigm whose classes alternate (S3 rest/MI pairs, S1 left/right),
     every update sees a class-balanced set, so the update cannot carry the trial's position
-    in the alternation."""
+    in the alternation.
+    half_life: the patient's labelled trials weigh 0.5 ** (age / half_life), age counted in
+    trials back from the newest (forgetting). donor_total: each donor group's total weight
+    (default: as much as the patient's labelled trials)."""
     fixed = donor_decoder(zero) if zero is not None else None
     model, w_map = lr(warm=True), None
     means = [None] * len(views)
@@ -208,7 +215,9 @@ def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=N
                 w_map = map_lr(T[lab], y[ref][lab], prior, w_map)
                 fitted = w_map
             else:
-                X, Y, w = stack(T[lab], y[ref][lab], groups)
+                age = len(lab) - 1 - np.arange(len(lab))
+                weights = None if half_life is None else 0.5 ** (age / half_life)
+                X, Y, w = stack(T[lab], y[ref][lab], groups, weights, donor_total)
                 fitted = model.fit(X, Y, sample_weight=w)
             state = (seen, Ws, fitted)
         _, Ws, fitted = state
