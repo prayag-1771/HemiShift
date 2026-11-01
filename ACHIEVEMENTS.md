@@ -36,6 +36,36 @@ only.
 
 ## Log
 
+### 2026-11-01 · RESULT (confirmed): the combination decoders on the S3 locked test; all six hypotheses hold
+
+Pre-registered in ec5cd82 and run once with `scripts/s3_locked_combo.py`. Data: 8 locked-test
+patients (pre 8, post 8, follow-up 6), raw recordings. Results in
+`results/summary/s3_locked_combo.csv`.
+
+| | Hypothesis (k = 5) | Result | One-sided p | Verdict |
+|---|---|---|---|---|
+| H-C1 | `bma` > own, first session | 77.1 → **88.7 %** (+11.6, median +11.4); 8 helped, 0 harmed | 0.0039 | **confirmed** |
+| H-C2 | `bma` > own, later sessions | 75.9 → **88.1 %** (+12.2, median +9.6); 8/0 | 0.0039 | **confirmed** |
+| H-C3 | `bma` > `own_sup` (known co-adaptive), first session | 83.5 → 88.7 % (+5.2, median +5.7); 7/1 | 0.0195 | **confirmed** |
+| H-C4 | `prevoth_unsup_bank28` > own, later sessions | 75.9 → 87.7 % (+11.9); 8/0 | 0.0039 | **confirmed** |
+| H-C5 | `prevzero_unsup_bank` > own, later sessions | 75.9 → 84.2 % (+8.4, median +5.4); 8/0 | 0.0039 | **confirmed** |
+| H-C6 | `pooled_unsup_bank` > own, first session | 77.1 → 85.8 % (+8.7); 7/1 | 0.0078 | **confirmed** |
+
+- **What the results mean:**
+  - With cue labels during the session, the full stack gains about 12 points on patients it
+    was never developed on, in their first session and when they return. That is about 5
+    points more than the known co-adaptive decoder.
+  - Without labels after calibration, returning patients still gain 12 points.
+  - With no labels at all in the returning session, the gain is 8 points.
+- **Descriptive (k = 10):** `bma` +7.7 (first session, 8/0) and +12.5 (later, 8/0);
+  `prevoth_unsup_bank28` +12.1 (later, 8/0).
+- **Caveats:**
+  - There are only 8 patients, all from one site.
+  - The co-adaptive decoders need the cue label of every trial, which a cue-based rehab
+    session has.
+  - The S3 locked set has now been used for three pre-registered analyses.
+  - The ICA-cleaned sensitivity analysis is reported below once it has run.
+
 ### 2026-11-01 · PRE-REGISTRATION: the combination decoders on the S3 locked test patients (run once)
 
 - **What is tested:** the combination decoders of `scripts/combo_explore.py` (rounds 1 and 2),

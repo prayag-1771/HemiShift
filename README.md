@@ -24,6 +24,10 @@ then tests them on hospitals they have never seen.
 
 | Finding | Result | Status |
 |---|---|---|
+| **The combined decoder:** other patients + mu/beta band bank + the patient's own earlier sessions + updating after every trial (cue labels), with online model averaging (S3 locked test, 8 never-used patients) | First session 77.1 → **88.7 %** (+11.6); returning patients 75.9 → **88.1 %** (+12.2); all 8 patients helped in both; +5.2 over the known co-adaptive decoder | **Confirmed** (pre-registered, run once, p = 0.004 / 0.004 / 0.020) |
+| The combined decoder without any labels after calibration (S3 locked test) | Returning patients +11.9 (8/8); first session +8.7 (7/1) | **Confirmed** (pre-registered, p = 0.004 / 0.008) |
+| A returning patient with no labels at all: earlier sessions' decoder, re-centred online (S3 locked test) | 84.2 % vs 75.9 % for the own decoder with 5 labelled pairs (+8.4, 8/8) | **Confirmed** (pre-registered, p = 0.004) |
+| The same combinations on development data (S3 dev, S4) | +9 to +12 points over the own decoder in both cohorts; picks made on one cohort hold on the other | Exploratory |
 | Pooling other patients' data into a re-centred Riemannian decoder, 5 calibration pairs (S3) | 77.1 → **81.4 %** (+4.3); 7 of 8 patients helped; matches own decoder at 10 pairs | **Confirmed on the locked test** (pre-registered, p = 0.047 after a tie correction; first logged as 0.035) |
 | The same pooling on a new cohort (S4, 27 patients) | 69.1 → 70.8 % (+1.6); 14 helped, 6 harmed | **Confirmed** (pre-registered replication, p = 0.019) |
 | Pooled decoder with a mu / low-beta / high-beta band bank (S4) | 70.8 → **73.1 %** (+2.3 over pooled, +4.0 over own) | **Confirmed** (pre-registered, Holm p = 0.021) |
@@ -36,9 +40,14 @@ then tests them on hospitals they have never seen.
 | LesionSim: healthy-to-stroke simulation, 6 forms incl. learned settings (S1, S3) | No gain; real stroke donors help where simulated ones do not | Negative |
 | Deep learning (EEGNet, healthy pretraining) and an EEG foundation model (CBraMod) | No gain over per-patient Riemannian decoders | Negative |
 
-**Also tested, without gain:** 40 decoder variants on S3 dev (more channels, longer windows,
-donor weighting and selection, Riemannian stretching, SVM, ensembles, mixup). Only band banks
-and online co-adaptive recalibration helped there.
+**Also tested, without gain:**
+- 40 decoder variants on S3 dev: more channels, longer windows, donor weighting and
+  selection, Riemannian stretching, SVM, ensembles, mixup. Only band banks and online
+  co-adaptive recalibration helped there.
+- In the combination study (`scripts/combo_explore.py`):
+  - an empirical-Bayes prior instead of pooling trials;
+  - sub-window augmentation;
+  - unsupervised bias adaptation.
 
 **Pitfalls quantified on the way:**
 - In an imagery-vs-rest paradigm, non-motor channels separate the classes too. On S3, frontal
