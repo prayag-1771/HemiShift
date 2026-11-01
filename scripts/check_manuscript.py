@@ -104,6 +104,10 @@ def main():
         problems.append(f"dash in body text: ...{text[max(0, m.start() - 30):m.end() + 30]!r}")
     for m in re.finditer(r"[A-Za-z]+-[A-Za-z]+", text):
         problems.append(f"compound hyphen in body text: {m.group(0)!r}")
+    # the work is described as done in this study, never as a repetition of earlier runs
+    for m in re.finditer(r"\b(reproduc\w*|re-?run\w*|recomput\w*|replicat\w*|repeat\w*|again|first logged|replay\w*|rebuild\w*)\b",
+                         text, flags=re.I):
+        problems.append(f"repetition wording: {m.group(0)!r} in ...{text[max(0, m.start() - 40):m.end() + 20]!r}")
 
     # abstract rules
     if re.search(r"\\cite|\$|\\begin\{equation|\(\s*p\s*=|-", abstract):

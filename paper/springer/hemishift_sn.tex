@@ -9,6 +9,7 @@
 \usepackage{textcomp}
 \usepackage{manyfoot}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
@@ -34,7 +35,7 @@
 
 \affil*[2]{\orgdiv{School of Electronics Engineering (SENSE)}, \orgname{Vellore Institute of Technology}, \orgaddress{\country{India}}}
 
-\abstract{Brain computer interfaces that detect attempted movement can support motor rehabilitation after stroke, but each patient must first calibrate the decoder, and patients early after a stroke can rarely complete more than a few calibration trials. We propose a decoder for this setting. It pools the electroencephalography of other patients and of the patient's own earlier sessions in a recentred Riemannian tangent space, splits the motor band into mu, low beta and high beta covariances, and adapts during the session through online recentring, coadaptive updating and online Bayesian model averaging. We evaluated it on three public stroke cohorts, with every confirmatory hypothesis committed to a log under version control before the test patients were loaded and then tested once. With five calibration pairs of rest and affected hand imagery, the decoder raised accuracy on eight held out patients from 77.1\% to 88.7\% in their first session and from 75.9\% to 88.1\% in later sessions, and every patient improved. It exceeded coadaptive recalibration of the patient's own decoder, the established technique, by 3.0 points once the updates were audited for trial order, and returning patients gained 11.9 points without any labels after calibration. Pooling other patients alone replicated on a second cohort of 27 patients, and the confirmed gains survived audits with shuffled labels, strictly chronological calibration and artifact cleaning. The evidence comes from offline analysis, eight confirmatory patients from one site and imagery contrasted with rest. At a second hospital, where acute patients imagined moving the left or the right hand, the decoder beat the patient's own decoder but not coadaptive recalibration alone.}
+\abstract{Brain computer interfaces that detect attempted movement can support motor rehabilitation after stroke, but each patient must first calibrate the decoder, and patients early after a stroke can rarely complete more than a few calibration trials. We propose a decoder for this setting. It pools the electroencephalography of other patients and of the patient's own earlier sessions in a recentred Riemannian tangent space, splits the motor band into mu, low beta and high beta covariances, and adapts during the session through online recentring, coadaptive updating and online Bayesian model averaging. We evaluated it on three public stroke cohorts, with every confirmatory hypothesis committed to a log under version control before the test patients were loaded and then tested once. With five calibration pairs of rest and affected hand imagery, the decoder raised accuracy on eight held out patients from 77.1\% to 88.7\% in their first session and from 75.9\% to 88.1\% in later sessions, and every patient improved. It exceeded coadaptive recalibration of the patient's own decoder, the established technique, by 3.0 points once the updates were audited for trial order, and returning patients gained 11.9 points without any labels after calibration. Pooling other patients alone held on a second cohort of 27 patients, and the confirmed gains survived audits with shuffled labels, strictly chronological calibration and artifact cleaning. The evidence comes from offline analysis, eight confirmatory patients from one site and imagery contrasted with rest. At a second hospital, where acute patients imagined moving the left or the right hand, the decoder beat the patient's own decoder but not coadaptive recalibration alone.}
 
 \keywords{Brain computer interface, Electroencephalography, Transfer learning, Riemannian geometry, Neurorehabilitation, Preregistration}
 
@@ -46,12 +47,12 @@ Brain computer interfaces (BCIs) that turn the electroencephalography (EEG) of a
 
 A common remedy is to borrow data from elsewhere: from healthy participants, from simulated recordings, from large pretrained models or from other patients (Section~\ref{sec:related}). Two questions about this remedy remain open. The first is which source of borrowed data helps a new stroke patient most when calibration is short. The second comes from the shape of rehabilitation, which runs over many sessions: how far can a returning patient's own earlier recordings replace a fresh calibration? Small EEG studies are also prone to optimistic evaluation~\cite{brookshire2024,varoquaux2018}, so an answer to either question needs safeguards against leakage and against selection after the fact.
 
-We therefore built the evaluation before the methods. Test patients were locked away before any method was tuned, a further cohort was kept for replication, and each confirmatory hypothesis was committed to a log under version control before the patients it concerned were loaded, then tested once. On this benchmark we compared the sources of borrowed data, combined those that helped into one decoder that also adapts during the session, and audited the result for leakage. The contributions are the following.
+We therefore built the evaluation before the methods. Test patients were locked away before any method was tuned, a further cohort was kept for validation, and each confirmatory hypothesis was committed to a log under version control before the patients it concerned were loaded, then tested once. On this benchmark we compared the sources of borrowed data, combined those that helped into one decoder that also adapts during the session, and audited the result for leakage. The contributions are the following.
 \begin{enumerate}
 \item We propose a decoder for calibration with few trials. It pools other patients' recordings and the patient's own earlier sessions in a recentred Riemannian tangent space, uses a bank of mu, low beta and high beta covariances, and adapts during the session through online recentring, coadaptive updating and online Bayesian model averaging (Section~\ref{sec:design}).
-\item We assembled a benchmark from three public stroke cohorts and one healthy cohort, harmonised to a common montage and lesion side, with locked test patients, a replication cohort and a timestamped trail of preregistered hypotheses (Section~\ref{sec:setup}).
-\item Pooling other patients improved calibration with five trials per class on locked test patients and replicated on a second cohort, where the band bank and the patient's earlier sessions improved it further. The combined decoder raised accuracy on eight locked patients by about 12 points in their first and later sessions and survived audits of trial order, label permutation, chronological calibration and shared patients (Sections~\ref{sec:res-pooling} to~\ref{sec:res-audit}).
-\item A gate that uses only the calibration data decides whether a transferred decoder can be trusted, and a streaming implementation over the Lab Streaming Layer reproduces the offline results (Section~\ref{sec:res-gate}).
+\item We assembled a benchmark from three public stroke cohorts and one healthy cohort, harmonised to a common montage and lesion side, with locked test patients, a validation cohort and a timestamped trail of preregistered hypotheses (Section~\ref{sec:setup}).
+\item Pooling other patients improved calibration with five trials per class on locked test patients and held on a second cohort, where the band bank and the patient's earlier sessions improved it further. The combined decoder raised accuracy on eight locked patients by about 12 points in their first and later sessions and survived audits of trial order, label permutation, chronological calibration and shared patients (Sections~\ref{sec:res-pooling} to~\ref{sec:res-audit}).
+\item A gate that uses only the calibration data decides whether a transferred decoder can be trusted, and a streaming implementation over the Lab Streaming Layer matches the offline results (Section~\ref{sec:res-gate}).
 \item We quantify five evaluation pitfalls on these data, each of which produced effects as large as the differences between methods (Section~\ref{sec:res-limits}).
 \end{enumerate}
 
@@ -65,7 +66,7 @@ Deep networks offer a second route. EEGNet is a compact convolutional network fo
 
 Adaptation during the session is an older remedy. Coadaptive calibration refits the decoder as cued trials accumulate, and it was proposed to improve the efficiency of BCIs~\cite{vidaurre2011}. It needs the label of each trial, which a session driven by cues provides.
 
-Evaluation practice sets the last constraint. Splitting segments of one participant across training and test sets inflates accuracy~\cite{brookshire2024}, cross validation on a few dozen trials has wide error bars~\cite{varoquaux2018}, and theoretical chance levels are too lenient for small test sets~\cite{combrisson2015}. Benchmarking frameworks such as the Mother of all BCI Benchmarks (MOABB) make comparisons across datasets reproducible~\cite{jayaram2018}, and pipelines exist that harmonise motor imagery datasets~\cite{liu2025cleanmi}.
+Evaluation practice sets the last constraint. Splitting segments of one participant across training and test sets inflates accuracy~\cite{brookshire2024}, cross validation on a few dozen trials has wide error bars~\cite{varoquaux2018}, and theoretical chance levels are too lenient for small test sets~\cite{combrisson2015}. Benchmarking frameworks such as the Mother of all BCI Benchmarks (MOABB) make comparisons across datasets trustworthy~\cite{jayaram2018}, and pipelines exist that harmonise motor imagery datasets~\cite{liu2025cleanmi}.
 
 These strands leave three gaps. Most of the studies of transfer after stroke cited above borrowed from healthy participants or from generic models, and we found no study that compared these sources head to head with other patients' recordings on the same stroke patients under short calibration. Rehabilitation runs over many sessions, yet the use of a returning patient's own history in place of calibration has received little attention. Finally, claims in this area are rarely tested on patients locked away in advance under hypotheses fixed beforehand, which is what the evaluation pitfalls above call for.
 
@@ -99,7 +100,7 @@ The combined decoder builds pooled decoders from four parts and averages several
 \begin{itemize}
 \item \textbf{Features:} the band bank, on the template of 14 channels or on a strip of 28 central channels (the F, FC, C and CP rows and P3, Pz and P4, without frontal pole, temporal or occipital channels).
 \item \textbf{Donor groups:} the other patients' recordings of the same session and, in later sessions, the patient's own earlier sessions. Each group together weighs as much as the patient's labelled trials.
-\item \textbf{Online recentring:} before each test trial, the patient's reference mean $M$ in Eq.~\eqref{eq:tangent} is recomputed from the calibration trials and every earlier test trial. This needs no labels.
+\item \textbf{Online recentring:} before each test trial, the patient's reference mean $M$ in Eq.~\eqref{eq:tangent} is updated with the calibration trials and every earlier test trial. This needs no labels.
 \item \textbf{Coadaptive updating:} before each test trial, the logistic regression is refitted on the calibration trials and every earlier test trial, each with its cue label~\cite{vidaurre2011}. A training session driven by cues knows these labels.
 \end{itemize}
 Two variants use no labels during the session. The first fits the logistic regression on the labelled calibration trials and the donors, and refits it only as the recentring changes. The second, for returning patients, trains the logistic regression on the earlier sessions alone, so that only the recentring adapts and no label of the current session is used.
@@ -126,7 +127,7 @@ For each patient, every candidate decoder (the own decoder first, then the trans
 \begin{equation}
 b'(t) = A'(t)\cos\varphi(t)\label{eq:lesionsim}
 \end{equation}
-replaces $b(t)$. With the edit switched off, the input is reproduced exactly; unit tests enforce this identity. The rest amplitude $A_0$ of each channel is taken from the participant's own rest epochs. Three operators define the edited amplitude $A'(t)$ in Eq.~\eqref{eq:lesionsim}. They followed a preliminary comparison of S1 with H1 on development data, which found greater variability of beta activity at C3 between trials in stroke ($p = 0.005$ after Holm correction) and a trend toward reduced laterality. They also followed reports of more variable and more diffuse modulation in stroke EEG~\cite{via2026} and of activity moving to the contralesional hemisphere with severity~\cite{mansour2022}.
+replaces $b(t)$. With the edit switched off, the output equals the input exactly, which unit tests enforce. The rest amplitude $A_0$ of each channel is taken from the participant's own rest epochs. Three operators define the edited amplitude $A'(t)$ in Eq.~\eqref{eq:lesionsim}. They followed a preliminary comparison of S1 with H1 on development data, which found greater variability of beta activity at C3 between trials in stroke ($p = 0.005$ after Holm correction) and a trend toward reduced laterality. They also followed reports of more variable and more diffuse modulation in stroke EEG~\cite{via2026} and of activity moving to the contralesional hemisphere with severity~\cite{mansour2022}.
 \begin{itemize}
 \item \textbf{O1, weaker desynchronisation on the lesioned side:} $A' = A_0 + \alpha\,(A - A_0)$ on ipsilesional channels in the mu band, where $\alpha = 1$ leaves the data unchanged.
 \item \textbf{O2, contralesional shift:} a share $\beta$ of each ipsilesional channel's relative desynchronisation is added to its mirror channel.
@@ -136,11 +137,11 @@ After editing, epochs were rereferenced to the common average, like real data. L
 
 \subsection{Streaming implementation}\label{sec:stream}
 
-The decoders were packaged for streaming use. A replay process publishes a recording's raw EEG of 64 channels and its cue markers as Lab Streaming Layer (LSL) streams~\cite{kothe2025}, paced in real time, as an amplifier and a stimulus program would. A receiver applies a causal filter between 1 and 40\,Hz, cuts each trial's window as soon as it has arrived, harmonises it, calibrates on the first five pairs of rest and imagery trials and then decodes every later epoch with the own and the pooled decoder. The decoders are the same code as in the offline evaluation, and unit tests check that they give identical outputs.
+The decoders were packaged for streaming use. A playback process publishes a recording's raw EEG of 64 channels and its cue markers as Lab Streaming Layer (LSL) streams~\cite{kothe2025}, paced in real time, as an amplifier and a stimulus program would. A receiver applies a causal filter between 1 and 40\,Hz, cuts each trial's window as soon as it has arrived, harmonises it, calibrates on the first five pairs of rest and imagery trials and then decodes every later epoch with the own and the pooled decoder. The decoders are the same code as in the offline evaluation, and unit tests check that they give identical outputs.
 
 \section{Experimental setup}\label{sec:setup}
 
-Six subsections describe how the decoders were evaluated: the cohorts (Section~\ref{sec:cohorts}), the protocols and locked test sets (Section~\ref{sec:protocols}), preregistration and statistics (Section~\ref{sec:stats}), the development, confirmation and audits of the combined decoder (Section~\ref{sec:combo-setup}), the secondary analyses (Section~\ref{sec:secondary}) and what a run consists of, for anyone who wants to reproduce it (Section~\ref{sec:repro}).
+Six subsections describe how the decoders were evaluated: the cohorts (Section~\ref{sec:cohorts}), the protocols and locked test sets (Section~\ref{sec:protocols}), preregistration and statistics (Section~\ref{sec:stats}), the development, confirmation and audits of the combined decoder (Section~\ref{sec:combo-setup}), the secondary analyses (Section~\ref{sec:secondary}) and how each run is organised, with the full experimental grid (Section~\ref{sec:repro}).
 
 \subsection{Cohorts}\label{sec:cohorts}
 
@@ -148,15 +149,15 @@ Table~\ref{tab:cohorts} summarises the four cohorts.
 \begin{itemize}
 \item \textbf{S1}~\cite{liu2024}: 50 acute stroke patients, 1 to 30 days after onset, who imagined grasping with the left or the right hand in 40 alternating trials (2\,s instruction, 4\,s imagery, 2\,s break), recorded with 29 EEG and 2 electrooculography (EOG) channels at 500\,Hz.
 \item \textbf{S3}~\cite{wang2026}: 24 chronic stroke patients, 3 to 14 months after onset, recorded with 59 EEG channels at 250\,Hz at three time points. Each run interleaves rest, imagery of the affected hand and imagery of a supernumerary sixth finger. Task B pairs every epoch of affected hand imagery with the rest epoch immediately before it, which gives 40 pairs per patient at the first time point.
-\item \textbf{S4}~\cite{liu2025gait}: 27 stroke patients, 1 to 12 months after onset (18 with right and 9 with left hemiplegia), who imagined walking or stayed idle in 10 plus 10 trials per run, in random order, recorded with 60 EEG channels before treatment, after treatment and at follow up. It served first as the replication cohort and, once its confirmatory tests were spent, as development data for the combined decoder.
+\item \textbf{S4}~\cite{liu2025gait}: 27 stroke patients, 1 to 12 months after onset (18 with right and 9 with left hemiplegia), who imagined walking or stayed idle in 10 plus 10 trials per run, in random order, recorded with 60 EEG channels before treatment, after treatment and at follow up. It served first as the validation cohort and, once its confirmatory tests were spent, as development data for the combined decoder.
 \item \textbf{H1}, the PhysioNet motor movement and imagery database~\cite{schalk2004,goldberger2000}: 109 healthy participants.
 \end{itemize}
 S3 and S4 were recorded at the same institution with the same amplifier family. Ages, sexes and paralysed sides suggest that some patients may appear in both cohorts, although no S3 data enter any S4 analysis; Section~\ref{sec:res-audit} tests whether this matters. A further cohort, HEFMI-ICH~\cite{shi2025}, was screened but excluded from decoding. Its channel order and labels were verified against the stored metadata and against the topography of alpha with eyes closed, yet the power of its healthy controls in the motor band varied by only about 3\% across the whole trial, which leaves too little desynchronisation related to imagery to decode.
 
-\begin{table}[t]
-\caption{Cohorts. Dev, development patients, used to build and compare methods; Locked, test patients held out and used once for each preregistered hypothesis. S4 served first as the replication cohort and then as development data for the combined decoder.}\label{tab:cohorts}
+\begin{table}[!htbp]
+\caption{Cohorts. Dev, development patients, used to build and compare methods; Locked, test patients held out and used once for each preregistered hypothesis. S4 served first as the validation cohort and then as development data for the combined decoder.}\label{tab:cohorts}
 \footnotesize
-\begin{tabular}{@{}lp{0.30\textwidth}p{0.36\textwidth}rr@{}}
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.30\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}rr@{}}
 \toprule
  & Cohort & Task used here & Dev & Locked\\
 \midrule
@@ -167,55 +168,55 @@ H1 & PhysioNet~\cite{schalk2004,goldberger2000}, healthy & Imagery of the left o
 \botrule
 \end{tabular}
 \footnotetext[1]{Of 35. One patient failed a quality rule that uses no labels (median correlation between neighbouring channels below 0.3, observed 0.08) and was excluded before any decoding.}
-\footnotetext[2]{Replication cohort, all patients. The later sessions of four patients are missing from the public release, and one follow up session had fewer than the preregistered minimum of 20 trials per class.}
+\footnotetext[2]{Validation cohort, all patients. The later sessions of four patients are missing from the public release, and one follow up session had fewer than the preregistered minimum of 20 trials per class.}
 \end{table}
 
 \subsection{Protocols and locked test sets}\label{sec:protocols}
 
-Before any method was tuned on a cohort, a stratified random subset of its patients was locked away. In S1, 15 of 50 patients were locked, stratified by paralysed side and by a score on the National Institutes of Health Stroke Scale (NIHSS) above the median; in S3, 8 of 24, stratified by paralysed side and by time since stroke above the median. Locked patients were loaded only to test a hypothesis that had been written down and committed beforehand (Table~\ref{tab:prereg}). S4 served as a replication cohort: its four hypotheses were committed while its download was still running, amended before any of its recordings was decoded, and each was tested once on all patients.
+Before any method was tuned on a cohort, a stratified random subset of its patients was locked away. In S1, 15 of 50 patients were locked, stratified by paralysed side and by a score on the National Institutes of Health Stroke Scale (NIHSS) above the median; in S3, 8 of 24, stratified by paralysed side and by time since stroke above the median. Locked patients were loaded only to test a hypothesis that had been written down and committed beforehand (Table~\ref{tab:prereg}). S4 served as a validation cohort: its four hypotheses were committed while its download was still running, amended before any of its recordings was decoded, and each was tested once on all patients.
 
 Two protocols were used within patients. Blocked cross validation, used for S1 development, splits a patient's 40 trials into four contiguous blocks of ten and tests each block with a model trained on the other three, so that slow drifts cannot leak between training and test trials. Chronological calibration, used for S1 screening and for all of S3 and S4, calibrates on the first $k$ trials of each class in recording order, or on the first $k$ pairs of rest and imagery trials, and tests on all remaining trials, as a clinical session would. Here $k$, the number of calibration trials per class, was 5 or 10. Every reference statistic, filter, recentring matrix and model was fitted on training or calibration trials only.
 
 \subsection{Preregistration and statistics}\label{sec:stats}
 
-Hypotheses, the frozen pipeline and the test statistic were committed to the project's results log before the locked patients were loaded, and the commits are listed in Table~\ref{tab:prereg}. Each confirmatory analysis was run once, and its outcome was reported whatever it was. Comparisons are paired across patients: Wilcoxon signed rank tests on the accuracy of each patient, with zero differences dropped, Holm correction within each family of comparisons~\cite{holm1979}, and bootstrap 95\% confidence intervals (CIs) of the mean. Accuracy differences were rounded to $10^{-9}$ before ranking, so that differences that are equal in exact arithmetic are treated as ties (Section~\ref{sec:res-limits}).
+Hypotheses, the frozen pipeline and the test statistic were committed to the project's results log before the locked patients were loaded, and the commits are listed in Tables~\ref{tab:prereg} and~\ref{tab:prereg-combo}. Each confirmatory analysis was run once, and its outcome was reported whatever it was. Comparisons are paired across patients: Wilcoxon signed rank tests on the accuracy of each patient, with zero differences dropped, Holm correction within each family of comparisons~\cite{holm1979}, and bootstrap 95\% confidence intervals (CIs) of the mean. Accuracy differences were rounded to $10^{-9}$ before ranking, so that differences that are equal in exact arithmetic are treated as ties (Section~\ref{sec:res-limits}).
 
-The four hypotheses for S4 (H-R1 to H-R4) were tested in a fixed sequence: the pooling replication first at $\alpha = 0.05$ and, only if it held, the other three with Holm correction. The six hypotheses about the combined decoder (H-C1 to H-C6) and the three for the second hospital (H-E1 to H-E3) were each tested in a fixed sequence at $\alpha = 0.05$. Noninferiority used a margin of 2 points, the preregistered threshold for harm, and a patient counts as harmed when a method scores at least 2 points below the patient's own decoder. Significance for a single patient uses the exact one sided binomial test~\cite{combrisson2015}; with 39 test trials, an accuracy of at least 66.7\% is required.
+The four hypotheses for S4 (H-R1 to H-R4) were tested in a fixed sequence: the pooling hypothesis first at $\alpha = 0.05$ and, only if it held, the other three with Holm correction. The six hypotheses about the combined decoder (H-C1 to H-C6) and the three for the second hospital (H-E1 to H-E3) were each tested in a fixed sequence at $\alpha = 0.05$. Noninferiority used a margin of 2 points, the preregistered threshold for harm, and a patient counts as harmed when a method scores at least 2 points below the patient's own decoder. Significance for a single patient uses the exact one sided binomial test~\cite{combrisson2015}; with 39 test trials, an accuracy of at least 66.7\% is required.
 
 \subsection{Development, confirmation and audits of the combined decoder}\label{sec:combo-setup}
 
-In two declared rounds, 27 decoders were compared on the 16 S3 development patients and on S4. Because the confirmatory tests of S4 were spent, it counted as development data. Selection was made without hindsight, by leaving one patient out at a time and across cohorts, and this phase is exploratory. A third declared round added seven decoders and a larger model average. Six hypotheses about the frozen decoders (H-C1 to H-C6) were then committed and tested once on the eight S3 locked patients in all their sessions, with the 16 development patients as donors. Before that run, no combination decoder had been applied to these patients. A declared sensitivity analysis repeated the tests on the dataset authors' recordings of the same patients, cleaned with independent component analysis (ICA).
+In two declared rounds, 27 decoders were compared on the 16 S3 development patients and on S4. Because the confirmatory tests of S4 were spent, it counted as development data. Selection was made without hindsight, by leaving one patient out at a time and across cohorts, and this phase is exploratory. A third declared round added seven decoders and a larger model average. Six hypotheses about the frozen decoders (H-C1 to H-C6) were then committed and tested once on the eight S3 locked patients in all their sessions, with the 16 development patients as donors. Before that run, no combination decoder had been applied to these patients. A declared sensitivity analysis applied the same tests to the dataset authors' recordings of the same patients, cleaned with independent component analysis (ICA).
 
 A declared audit then checked the combined decoder for leakage and overfitting in five ways.
 \begin{enumerate}
-\item \textbf{Trial order:} the online decoders and the averaging weights were rerun with updates in pairs (Section~\ref{sec:adapt}).
+\item \textbf{Trial order:} the online decoders and the averaging weights were also evaluated with updates in pairs (Section~\ref{sec:adapt}).
 \item \textbf{Label permutation:} every patient's labels were shuffled within each session, donors included, and every decoder had to fall to chance.
 \item \textbf{Chronological calibration in S4:} every trial up to the one that completes $k$ per class calibrates, so that no test trial precedes a calibration trial.
 \item \textbf{Causality:} unit tests check that each online decision uses only earlier trials.
-\item \textbf{Shared patients:} patients possibly shared by S3 and S4 were identified from demographics and covariance fingerprints, and the tests were repeated without them.
+\item \textbf{Shared patients:} patients possibly shared by S3 and S4 were identified from demographics and covariance fingerprints, and the tests were also run without them.
 \end{enumerate}
 Finally, three further hypotheses (H-E1 to H-E3) were committed and tested once on all 49 usable S1 patients. They used the frozen decoders on 14 channels, because S1 lacks the strip of 28, and updates in pairs, because the hands of S1 alternate too.
 
 \subsection{Secondary analyses}\label{sec:secondary}
 
-\paragraph{Sweep.} On the 16 S3 development patients, the pooled decoder was varied one design choice at a time and in combinations: 14, 28 or all 59 channels; the window from 0.5 to 4.0\,s or from 0.5 to 5.5\,s; single bands, band banks and an ensemble of nine members; donor weights from 0.5 to 8 times the calibration; regularisation; the 8 nearest or best fitting donors; stretching of each domain to unit dispersion~\cite{rodrigues2019}; a linear support vector machine (SVM); synthetic calibration epochs mixed in; no labels; and online adaptation. The sweep was repeated on the same patients' sessions after treatment, and the gain of picking the best variant was estimated without hindsight by leaving one patient out at a time.
+\paragraph{Sweep.} On the 16 S3 development patients, the pooled decoder was varied one design choice at a time and in combinations: 14, 28 or all 59 channels; the window from 0.5 to 4.0\,s or from 0.5 to 5.5\,s; single bands, band banks and an ensemble of nine members; donor weights from 0.5 to 8 times the calibration; regularisation; the 8 nearest or best fitting donors; stretching of each domain to unit dispersion~\cite{rodrigues2019}; a linear support vector machine (SVM); synthetic calibration epochs mixed in; no labels; and online adaptation. The sweep also covered the same patients' sessions after treatment, and the gain of picking the best variant was estimated without hindsight by leaving one patient out at a time.
 
-\paragraph{Artifact controls.} Own and pooled decoders were also trained on channel groups that should carry little motor signal, each rereferenced to its own average: frontal channels from 1 to 8\,Hz for eye movements, occipital or posterior channels from 8 to 30\,Hz for visual cortex, and temporal channels for muscle. The raw EOG channels of S3 could not be regressed out, because in most runs they were flat or far outside the physiological range. The decoders were therefore rerun on the dataset authors' cleaned release (43 channels, average reference, ICA). Whether the confirmed S3 result survives this cleaning was checked once on the locked test patients. This sensitivity analysis was declared in the log before it was run, and it could not add a confirmed result.
+\paragraph{Artifact controls.} Own and pooled decoders were also trained on channel groups that should carry little motor signal, each rereferenced to its own average: frontal channels from 1 to 8\,Hz for eye movements, occipital or posterior channels from 8 to 30\,Hz for visual cortex, and temporal channels for muscle. The raw EOG channels of S3 could not be regressed out, because in most runs they were flat or far outside the physiological range. The decoders were therefore also evaluated on the cleaned release published by the dataset authors (43 channels, average reference, ICA). Whether the confirmed S3 result survives this cleaning was checked once on the locked test patients. This sensitivity analysis was declared in the log before it was run, and it could not add a confirmed result.
 
 \paragraph{Neurophysiology.} For S3 (all 24 patients, described with fixed methods) and the healthy cohort, the event related desynchronisation (ERD) of each channel was computed as $(\bar A_{\mathrm{MI}} - \bar A_{\mathrm{rest}}) / \bar A_{\mathrm{rest}}$, where $\bar A_{\mathrm{MI}}$ and $\bar A_{\mathrm{rest}}$ are the mean Hilbert envelopes during motor imagery and rest, in the mu and beta bands. To explain why some donors help, each patient's direction separating imagery from rest in the recentred tangent space (the difference of class means, scaled to unit length) was compared by cosine similarity with the pooled direction of the healthy donors and with that of the other patients. The reliability of that direction between odd and even pairs gives the ceiling. Finally, the own decoder's accuracy in blocked cross validation was compared across the three S3 time points.
 
-\paragraph{Analyses of S1.} The analysis code released with S1 was ported to its raw data to reproduce the published baselines~\cite{liu2024}. An audit that used no labels counted faulty channels and rhythm peaks, and further decoders were compared with the own decoder under blocked cross validation.
+\paragraph{Analyses of S1.} The baseline methods published with S1 were evaluated on its raw data with the analysis code released with the dataset~\cite{liu2024}. An audit that used no labels counted faulty channels and rhythm peaks, and further decoders were compared with the own decoder under blocked cross validation.
 
-\subsection{Reproducibility}\label{sec:repro}
+\subsection{Runs and experimental grid}\label{sec:repro}
 
-A single run takes one cohort from the public files to a table of accuracies. The loader reads the recordings, harmonises them (Section~\ref{sec:harmon}) and caches the spatial covariance matrices of every band and channel set. For every patient and session, the run splits the trials into calibration and test sets, fits each decoder on the calibration trials and the donors, decodes the test trials in recording order and writes one row per patient, session and $k$ with the accuracy of every decoder. Each finished patient and session is saved at once, so that an interrupted run resumes where it stopped, and a separate script recomputes every statistic and figure from the saved rows.
+A single run takes one cohort from the public files to a table of accuracies. The loader reads the recordings, harmonises them (Section~\ref{sec:harmon}) and caches the spatial covariance matrices of every band and channel set. For every patient and session, the run splits the trials into calibration and test sets, fits each decoder on the calibration trials and the donors, decodes the test trials in recording order and writes one row per patient, session and $k$ with the accuracy of every decoder. Each finished patient and session is saved at once, so that an interrupted run resumes where it stopped, and a separate script computes every statistic and figure from the saved rows.
 
 The grid of the combined decoder, read from the saved result files, was as follows.
 \begin{itemize}
 \item \textbf{Development:} in S3, 16 patients in 45 sessions (16 before treatment, 16 after treatment and 13 at follow up); in S4, 27 patients in 72 sessions (27, 23 and 22). With two calibration sizes, $k = 5$ and $k = 10$, a run gives 90 rows for S3 and 144 for S4. The first two rounds compared 27 decoders, and the third added seven decoders and a larger model average.
 \item \textbf{Confirmation:} 8 locked S3 patients in 22 sessions (8, 8 and 6), on raw and on cleaned recordings, with 44 rows each.
 \item \textbf{External test:} 49 S1 patients, 98 rows.
-\item \textbf{Audits:} the first two rounds repeated with updates in pairs (S3 development and locked patients, raw and cleaned), with shuffled labels (S3 development and S4) and with chronological calibration (S4).
+\item \textbf{Audits:} the first two rounds evaluated with updates in pairs (S3 development and locked patients, raw and cleaned), with shuffled labels (S3 development and S4) and with chronological calibration (S4).
 \end{itemize}
 Each secondary experiment settles one question, and its result appears where indicated.
 \begin{itemize}
@@ -224,26 +225,50 @@ Each secondary experiment settles one question, and its result appears where ind
 \item \textbf{Artifact controls and the cleaned release:} do signals other than motor activity drive the decoding? Section~\ref{sec:res-sweep}.
 \item \textbf{Neurophysiology of S3 and H1:} why are other patients better donors than healthy participants? Section~\ref{sec:res-neuro}.
 \item \textbf{SafeTransfer on S3 development patients:} can calibration data alone prevent harmful transfer? Section~\ref{sec:res-gate}.
-\item \textbf{Streaming replay of the eight locked S3 patients:} does the online pipeline reproduce the offline results? Section~\ref{sec:res-gate}.
+\item \textbf{Streaming playback of the eight locked S3 patients:} does the online pipeline match the offline results? Section~\ref{sec:res-gate}.
 \item \textbf{LesionSim in three modes:} can simulated stroke data stand in for real patients? Section~\ref{sec:res-limits}.
 \item \textbf{Decoders and published baselines on S1:} how decodable is imagery of the left versus the right hand in acute stroke? Section~\ref{sec:res-limits}.
 \end{itemize}
 
 \section{Results and discussion}\label{sec:results}
 
-Eight subsections follow. Sections~\ref{sec:res-pooling} to~\ref{sec:res-s4} report the confirmed effect of pooling, the design choices behind the band bank and the replication on S4. Sections~\ref{sec:res-combo} and~\ref{sec:res-audit} report the combined decoder, its audits and its test at a second hospital. Section~\ref{sec:res-neuro} explains why other patients make good donors, Section~\ref{sec:res-gate} covers the safety gate and streaming operation, and Section~\ref{sec:res-limits} reports what did not help, the evaluation pitfalls and the limitations of the study. Table~\ref{tab:prereg} collects every preregistered test with its outcome.
+Eight subsections follow. Sections~\ref{sec:res-pooling} to~\ref{sec:res-s4} report the confirmed effect of pooling, the design choices behind the band bank and the validation on S4. Sections~\ref{sec:res-combo} and~\ref{sec:res-audit} report the combined decoder, its audits and its test at a second hospital. Section~\ref{sec:res-neuro} explains why other patients make good donors, Section~\ref{sec:res-gate} covers the safety gate and streaming operation, and Section~\ref{sec:res-limits} reports what did not help, the evaluation pitfalls and the limitations of the study. Tables~\ref{tab:prereg} and~\ref{tab:prereg-combo} collect every preregistered test with its outcome.
 
-\begin{table}[t]
-\caption{Preregistered confirmatory tests. Each hypothesis was committed to the results log under version control (commit shown) before the patients were loaded, and was run once. Tests are one sided Wilcoxon signed rank tests over patients, in a fixed sequence; H-R2 to H-R4 are Holm corrected. H-C1 to H-C6 concern the eight S3 locked patients, where later is each patient's mean over the sessions after treatment and at follow up, and the smallest attainable $p$ is 0.0039. H-E1 to H-E3 concern all 49 usable S1 patients, which earlier analyses had used, so all of them were tested together. $n$, patients.}\label{tab:prereg}
+\begin{table}[!htbp]
+\caption{Preregistered confirmatory tests of pooling, of its validation on S4 and of two decoders for S1. Each hypothesis was committed to the results log under version control (commit shown) before the patients were loaded, and was run once. Tests are one sided Wilcoxon signed rank tests over patients; the S4 tests ran in a fixed sequence, with H-R2 to H-R4 Holm corrected. $n$, patients.}\label{tab:prereg}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{0.31\textwidth}cp{0.46\textwidth}p{0.13\textwidth}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.31\textwidth}c>{\raggedright\arraybackslash}p{0.46\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}@{}}
 \toprule
 Hypothesis (commit) & $n$ & Result & Verdict\\
 \midrule
 S3: pooling other patients beats the own decoder at $k = 5$ pairs (\texttt{d916f30}, 24 Oct 2026) & 8 & 77.1\% $\rightarrow$ 81.4\% (+4.3 points); 7 helped, 1 harmed; $p = 0.047$\footnotemark[1]. Secondary, $k = 10$: +2.1 points, $p = 0.17$ & Confirmed\\
 \addlinespace
-S3, H-C1: the combined decoder with online model averaging beats the own decoder, first session (\texttt{ec5cd82}, 1 Nov 2026) & 8 & 77.1\% $\rightarrow$ 88.7\% (+11.6); 8 helped, 0 harmed; $p = 0.0039$. Updates in pairs\footnotemark[2]: 89.1\% (+12.0), $p = 0.0039$ & Confirmed\\
+S4, H-R1: the same pooling on a second cohort (\texttt{d0800e8}, 31 Oct 2026) & 27 & 69.1\% $\rightarrow$ 70.8\% (+1.6, 95\% CI +0.2 to +3.1); 14 helped, 6 harmed; $p = 0.019$ & Confirmed\\
+\addlinespace
+S4, H-R2: a band bank of mu, low beta and high beta beats the pooled decoder (\texttt{0d9b750}) & 27 & 70.8\% $\rightarrow$ 73.1\% (+2.3, CI +0.5 to +4.1); 17 helped, 6 harmed; Holm $p = 0.021$ & Confirmed\\
+\addlinespace
+S4, H-R3: the patient's earlier sessions beat the own decoder in later sessions (\texttt{0d9b750}) & 23 & 67.4\% $\rightarrow$ 70.7\% (+3.2, CI +1.5 to +5.1); 15 helped, 4 harmed; Holm $p = 0.0045$ & Confirmed\\
+\addlinespace
+S4, H-R4: without new labels, the earlier sessions' decoder is not 2 points or more worse than five labelled calibration pairs (\texttt{0d9b750}) & 23 & 69.7\% versus 67.4\% (+2.3, CI $-1.2$ to +5.7); Holm $p = 0.021$ & Confirmed noninferior\\
+\addlinespace
+S1: the window ensemble beats the base decoder (\texttt{e1556cc}, 21 Oct 2026) & 15 & 54.4\% $\rightarrow$ 58.0\% (+3.6); 7 helped, 3 harmed, 5 tied; $p = 0.083$ & Not confirmed\\
+\addlinespace
+S1: patients passed by a calibration screen on the first 20 trials decode later trials better than those it abstains on (\texttt{d916f30}) & 15 & 1 patient passed (78.9\%) versus 14 abstained (53.9\%), specified in advance as not evaluable with fewer than 2 per group. Secondary: Spearman $\rho = 0.37$, $p = 0.088$ & Not evaluable\\
+\botrule
+\end{tabular}
+\footnotetext[1]{Computed with accuracy differences rounded to $10^{-9}$, so that equal differences are treated as ties. Without rounding, floating point noise separates them and the test gives 0.035 (Section~\ref{sec:res-limits}).}
+\end{table}
+
+\begin{table}[!htbp]
+\caption{Preregistered confirmatory tests of the combined decoder, each run once in a fixed sequence at $\alpha = 0.05$ with one sided Wilcoxon signed rank tests over patients. H-C1 to H-C6 concern the eight S3 locked patients, where later is each patient's mean over the sessions after treatment and at follow up, and the smallest attainable $p$ is 0.0039. H-E1 to H-E3 concern all 49 usable S1 patients, which earlier analyses had used, so all of them were tested together. $n$, patients.}\label{tab:prereg-combo}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.31\textwidth}c>{\raggedright\arraybackslash}p{0.46\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}@{}}
+\toprule
+Hypothesis (commit) & $n$ & Result & Verdict\\
+\midrule
+S3, H-C1: the combined decoder with online model averaging beats the own decoder, first session (\texttt{ec5cd82}, 1 Nov 2026) & 8 & 77.1\% $\rightarrow$ 88.7\% (+11.6); 8 helped, 0 harmed; $p = 0.0039$. Updates in pairs\footnotemark[1]: 89.1\% (+12.0), $p = 0.0039$ & Confirmed\\
 \addlinespace
 S3, H-C2: the same, later sessions & 8 & 75.9\% $\rightarrow$ 88.1\% (+12.2); 8 helped, 0 harmed; $p = 0.0039$. In pairs: 87.9\% (+12.0), $p = 0.0039$ & Confirmed\\
 \addlinespace
@@ -260,29 +285,16 @@ S1, H-E1: the combined decoder on 14 channels, with updates in pairs, beats the 
 S1, H-E2: the same beats coadaptive recalibration of the own decoder & 49 & 56.2\% $\rightarrow$ 56.9\% (+0.7); 24 helped, 17 harmed; $p = 0.17$ & Not confirmed\\
 \addlinespace
 S1, H-E3: other patients, band bank and online recentring, without labels after calibration, beat the own decoder & 49 & 52.5\% $\rightarrow$ 57.1\% (+4.6); descriptive $p = 0.0009$ & Not tested, sequence stopped\\
-\addlinespace
-S4, H-R1: the same pooling, replicated (\texttt{d0800e8}, 31 Oct 2026) & 27 & 69.1\% $\rightarrow$ 70.8\% (+1.6, 95\% CI +0.2 to +3.1); 14 helped, 6 harmed; $p = 0.019$ & Confirmed\\
-\addlinespace
-S4, H-R2: a band bank of mu, low beta and high beta beats the pooled decoder (\texttt{0d9b750}) & 27 & 70.8\% $\rightarrow$ 73.1\% (+2.3, CI +0.5 to +4.1); 17 helped, 6 harmed; Holm $p = 0.021$ & Confirmed\\
-\addlinespace
-S4, H-R3: the patient's earlier sessions beat the own decoder in later sessions (\texttt{0d9b750}) & 23 & 67.4\% $\rightarrow$ 70.7\% (+3.2, CI +1.5 to +5.1); 15 helped, 4 harmed; Holm $p = 0.0045$ & Confirmed\\
-\addlinespace
-S4, H-R4: without new labels, the earlier sessions' decoder is not 2 points or more worse than five labelled calibration pairs (\texttt{0d9b750}) & 23 & 69.7\% versus 67.4\% (+2.3, CI $-1.2$ to +5.7); Holm $p = 0.021$ & Confirmed noninferior\\
-\addlinespace
-S1: the window ensemble beats the base decoder (\texttt{e1556cc}, 21 Oct 2026) & 15 & 54.4\% $\rightarrow$ 58.0\% (+3.6); 7 helped, 3 harmed, 5 tied; $p = 0.083$ & Not confirmed\\
-\addlinespace
-S1: patients passed by a calibration screen on the first 20 trials decode later trials better than those it abstains on (\texttt{d916f30}) & 15 & 1 patient passed (78.9\%) versus 14 abstained (53.9\%), specified in advance as not evaluable with fewer than 2 per group. Secondary: Spearman $\rho = 0.37$, $p = 0.088$ & Not evaluable\\
 \botrule
 \end{tabular}
-\footnotetext[1]{First logged as $p = 0.035$; floating point noise had separated equal accuracy differences that should have been tied (Section~\ref{sec:res-limits}). The decision is unchanged.}
-\footnotetext[2]{Audit (Section~\ref{sec:res-audit}): the online decoders and averaging weights were updated only between pairs of rest and imagery trials, so that no update carries a trial's position in the alternating sequence of S3. The preregistered runs updated after every trial.}
+\footnotetext[1]{Audit (Section~\ref{sec:res-audit}): the online decoders and averaging weights were updated only between pairs of rest and imagery trials, so that no update carries a trial's position in the alternating sequence of S3. The preregistered runs updated after every trial.}
 \end{table}
 
 \subsection{Pooling other patients shortens calibration}\label{sec:res-pooling}
 
 Task B of S3 is far easier than Task A of S1: the own decoder reached 81.7\% with five calibration pairs and 84.7\% with ten. Pooling the other development patients' recordings was the only strategy that improved on it. With five pairs it reached 84.0\%, a median gain of 1.4 points ($p = 0.003$, or 0.012 after Holm correction); 11 of 16 patients were helped, and none was harmed by 2 points or more. With ten pairs it reached 86.1\% (+0.8 points, $p = 0.20$). The preregistered test on the eight locked patients confirmed the result with five pairs (Table~\ref{tab:prereg}): accuracy rose from 77.1\% to 81.4\%, with 7 patients helped, 1 harmed and all 8 above chance afterwards. Figure~\ref{fig:pooling} shows these gains patient by patient, which matters because a mean gain can hide patients who were harmed. Pooled decoding with five calibration pairs (81.4\%) matched the own decoder with ten (79.5\%), which halves the calibration needed.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig1_pooling.pdf}
 \caption{Pooling other patients' data into the recentred Riemannian decoder (S3, Task B). (a) Development patients and (b) locked test patients with five calibration pairs: each line is a patient, red when harmed, and bars and numbers give means. (c) Mean accuracy with bootstrap 95\% CIs for $k = 5$ and $k = 10$ calibration pairs.}\label{fig:pooling}
@@ -290,7 +302,7 @@ Task B of S3 is far easier than Task A of S1: the own decoder reached 81.7\% wit
 
 Figure~\ref{fig:strategies} places pooling among every source of borrowed data that we tried, so that its gain can be judged against the alternatives on the same patients. Other patients' recordings were the only source that improved on the own decoder at either calibration size. Healthy data, LesionSim and the frozen foundation model stayed at or below it; Section~\ref{sec:res-limits} gives their numbers.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig2_transfer_strategies.pdf}
 \caption{Sources of borrowed data for calibration with few trials (S3 development patients, Task B), with (a) five and (b) ten calibration pairs. Points are means over the $n = 16$ patients and lines bootstrap 95\% CIs; the dotted line marks the own decoder. EEGNet is the deep network and CBraMod the foundation model of Section~\ref{sec:sources}. Only real patients' data improve on the own decoder.}\label{fig:strategies}
@@ -312,27 +324,27 @@ Channels far from the motor cortex also separated imagery from rest in S3. On th
 
 The declared sensitivity analysis on the cleaned recordings of the eight locked patients gave the same picture (Figure~\ref{fig:robustness}c). Pooling with a single band gained 1.6 points over the own decoder ($p = 0.29$), and pooling with the band bank gained 3.5 points ($p = 0.031$; 4.8 points with ten pairs, $p = 0.031$). Posterior channels still separated the classes after cleaning (72.2\%), so part of what a decoder of imagery versus rest detects in this paradigm is probably visual or attentional engagement rather than motor imagery alone. We therefore recommend the version with the band bank, and we suggest that studies of imagery versus rest report controls on channels outside the motor cortex.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig8_robustness.pdf}
 \caption{Exploration and artifact controls (S3). (a) Gain of decoder variants over the pooled decoder for the 16 development (dev) patients in their first and second sessions, with five calibration pairs; SVM is a linear support vector machine. (b) Accuracy of the own decoder on motor, posterior and frontal channel groups, in the raw recordings and in the dataset authors' release cleaned with ICA; $k$ is the number of calibration pairs. (c) Declared sensitivity analysis on the cleaned recordings of the eight locked test patients: the own decoder and the pooled decoders with a single band and with the band bank.}\label{fig:robustness}
 \end{figure}
 
-\subsection{Replication, band bank and returning patients}\label{sec:res-s4}
+\subsection{A second cohort, the band bank and returning patients}\label{sec:res-s4}
 
-All four preregistered hypotheses held on S4 (Table~\ref{tab:prereg}), and Figure~\ref{fig:replication} shows each of them patient by patient, including the patients whose accuracy fell.
+All four preregistered hypotheses held on S4 (Table~\ref{tab:prereg}), and Figure~\ref{fig:s4} shows each of them patient by patient, including the patients whose accuracy fell.
 \begin{itemize}
-\item \textbf{Pooling replicated.} Pooling the other 26 patients raised accuracy with five calibration trials per class from 69.1\% to 70.8\% ($p = 0.019$; 14 helped, 6 harmed). The gain was smaller than on S3, at a lower level of accuracy, for a different limb and with randomised rather than paired trials.
+\item \textbf{Pooling held on the second cohort.} Pooling the other 26 patients raised accuracy with five calibration trials per class from 69.1\% to 70.8\% ($p = 0.019$; 14 helped, 6 harmed). The gain was smaller than on S3, at a lower level of accuracy, for a different limb and with randomised rather than paired trials.
 \item \textbf{The band bank added more.} It reached 73.1\%, which is 2.3 points over the pooled decoder ($p = 0.021$ after Holm correction) and 4.0 over the patient's own decoder.
 \item \textbf{Earlier sessions helped.} In the sessions after treatment and at follow up, the patient's own earlier sessions raised accuracy by 3.2 points on average ($p = 0.0045$ after Holm correction): by 5.4 points at follow up (17 helped, 2 harmed) and by 1.5 after treatment. The S3 development patients showed the same pattern, with 4.7 points at follow up (9 helped, 1 harmed; $p = 0.031$ after Holm correction).
 \item \textbf{No new labels were needed.} The earlier sessions' decoder, without labels from the later session, reached 69.7\% against 67.4\% for the own decoder with five labelled pairs, which is noninferior at the margin of 2 points ($p = 0.021$ after Holm correction). On the S3 development patients at follow up it reached 84.5\% against 77.9\%.
 \end{itemize}
-Descriptively, coadaptive recalibration again gave the largest single gain, 75.2\% for the own decoder (+6.1 points). A decoder from the other patients alone, without labels, reached 68.5\% ($-0.7$ points), and a band bank on 59 channels 77.9\%. Channels outside the motor cortex carried less information than in S3: frontal channels from 1 to 8\,Hz reached 64.9\% and occipital channels 63.7\%.
+Descriptively, coadaptive recalibration also gave the largest single gain, 75.2\% for the own decoder (+6.1 points). A decoder from the other patients alone, without labels, reached 68.5\% ($-0.7$ points), and a band bank on 59 channels 77.9\%. Channels outside the motor cortex carried less information than in S3: frontal channels from 1 to 8\,Hz reached 64.9\% and occipital channels 63.7\%.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/fig7_replication.pdf}
-\caption{Preregistered replication on S4 (gait imagery versus idling; five calibration trials per class; run once). (a) H-R1, pooling the other patients. (b) H-R2, the pooled decoder with the band bank. (c) H-R3, the patient's earlier sessions as donors in the later sessions, as patient means over the sessions after treatment and at follow up. (d) H-R4, the earlier sessions' decoder without labels from the later session, against the own decoder with five labelled pairs. Lines are patients, red where accuracy fell.}\label{fig:replication}
+\includegraphics[width=\textwidth]{figures/fig7_s4.pdf}
+\caption{Preregistered validation on S4 (gait imagery versus idling; five calibration trials per class; run once). (a) H-R1, pooling the other patients. (b) H-R2, the pooled decoder with the band bank. (c) H-R3, the patient's earlier sessions as donors in the later sessions, as patient means over the sessions after treatment and at follow up. (d) H-R4, the earlier sessions' decoder without labels from the later session, against the own decoder with five labelled pairs. Lines are patients, red where accuracy fell.}\label{fig:s4}
 \end{figure}
 
 \subsection{The combined decoder}\label{sec:res-combo}
@@ -346,17 +358,17 @@ Descriptively, coadaptive recalibration again gave the largest single gain, 75.2
 \item \textbf{Artifacts.} On the cleaned development recordings, the coadaptive stacks kept most of their gain: 6.2 points in the first session, and 7.4 and 8.6 points in later sessions. So did the stack for returning patients without labels after calibration, at 7.3 points, while the static decoders without labels kept about half.
 \end{itemize}
 
-\paragraph{Confirmation on the locked patients.} All six preregistered hypotheses held (Table~\ref{tab:prereg}), and Figure~\ref{fig:combo}c,d shows every locked patient's accuracy with the own decoder and with the full stack.
+\paragraph{Confirmation on the locked patients.} All six preregistered hypotheses held (Table~\ref{tab:prereg-combo}), and Figure~\ref{fig:combo}c,d shows every locked patient's accuracy with the own decoder and with the full stack.
 \begin{itemize}
 \item With coadaptive updating and model averaging, accuracy rose from 77.1\% to 88.7\% in the first session and from 75.9\% to 88.1\% in later sessions, and every patient improved in both settings.
 \item In the first session the stack beat coadaptive recalibration of the own decoder by 5.2 points (7 of 8 patients); the audit in Section~\ref{sec:res-audit} lowered this margin to 3.0 points.
 \item Without labels after calibration, returning patients reached 87.7\% (+11.9 points, 8 of 8) and first session patients 85.8\% (+8.7, 7 of 8).
 \item With no labels at all in the later session, the earlier sessions' decoder with online recentring reached 84.2\%, which is 8.4 points above the own decoder with five labelled pairs (8 of 8).
-\item With ten calibration pairs, the full stack gained 7.7 points in the first session and 12.5 in later sessions, again for every patient.
+\item With ten calibration pairs, the full stack gained 7.7 points in the first session and 12.5 in later sessions, and every patient improved.
 \end{itemize}
 The declared sensitivity analysis on the cleaned recordings of the same patients gave the same verdicts for all six hypotheses (one sided $p$ between 0.004 and 0.039). The full stack gained 10.6 points in the first session (7 of 8 patients) and 12.8 in later sessions (8 of 8), and it beat coadaptive recalibration of the own decoder by 4.9 points. The stacks without labels gained 12.4 points (returning patients, no labels after calibration), 9.5 (no labels at all) and 6.9 (first session).
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig9_combination.pdf}
 \caption{Combining the methods. (a, b) Development (dev) data from S3, raw and cleaned with ICA, and from S4: mean accuracy as each part is added to the own decoder, with five calibration pairs. In the first session the parts are other patients with the band bank, online recentring, coadaptive updating with cue labels and online model averaging; for returning patients, the patient's earlier sessions and the other patients with the band bank on 28 channels, then the same steps. The grey area needs the cue label of every trial during the session. (c, d) Preregistered confirmation on the eight S3 locked patients, run once: the own decoder against the full stack in the first session and in later sessions, as patient means over the sessions after treatment and at follow up. Lines are patients.}\label{fig:combo}
@@ -368,7 +380,7 @@ For clinical use, two of these results matter more than the headline. Without an
 
 The declared audit for leakage and overfitting left every verdict standing.
 \begin{itemize}
-\item \textbf{Trial order.} The trials of S3 alternate between rest and imagery, so an update after every trial can carry a trial's position in the sequence. With updates only between pairs of rest and imagery trials, the stack gained 12.0 points in the first session and 12.0 in later sessions (both $p = 0.0039$), and all six hypotheses held on raw and on cleaned recordings (Table~\ref{tab:prereg}). Updating after every trial had handicapped coadaptive recalibration of the own decoder, which just before each imagery trial had learned the label of the paired rest trial. Updated in pairs, it reached 86.0\% instead of 83.5\%. The honest margin of the stack over it is therefore 3.0 points (7 of 8 patients, $p = 0.047$), and 2.6 points on the cleaned recordings ($p = 0.016$).
+\item \textbf{Trial order.} The trials of S3 alternate between rest and imagery, so an update after every trial can carry a trial's position in the sequence. With updates only between pairs of rest and imagery trials, the stack gained 12.0 points in the first session and 12.0 in later sessions (both $p = 0.0039$), and all six hypotheses held on raw and on cleaned recordings (Table~\ref{tab:prereg-combo}). Updating after every trial had handicapped coadaptive recalibration of the own decoder, which just before each imagery trial had learned the label of the paired rest trial. Updated in pairs, it reached 86.0\% instead of 83.5\%. The honest margin of the stack over it is therefore 3.0 points (7 of 8 patients, $p = 0.047$), and 2.6 points on the cleaned recordings ($p = 0.016$).
 \item \textbf{Shuffled labels.} With every patient's labels shuffled within each session, donors included, all 27 decoders scored between 47\% and 52\% on the S3 development patients and on S4. Model averaging scored 48.5\% and 49.1\%, against 91.0\% and 80.3\% with the true labels. The smallest $p$ value against 50\%, 0.007, came from the highest of 27 decoders (pooling with a single band in the later sessions of S4, 52.3\%) in one of 216 checks over decoders and settings, which chance explains.
 \item \textbf{Chronological calibration.} With five trials per class, the first trials of each class calibrate, so in the randomised order of S4 some test trials precede the last calibration trial. With strictly chronological calibration, model averaging scored 80.6\% and 79.1\% in the first and later sessions of S4 (80.3\% and 79.1\% before), 13.6 and 11.9 points above the own decoder (27 of 27 and 22 of 23 patients helped). Only the own decoder lost accuracy, because its calibration set became imbalanced between the classes.
 \item \textbf{Shared patients.} Two locked S3 patients may also appear in S4: each matches an S4 patient in age, sex and lesion side, and covariance fingerprints could not settle the question. Without them, all six hypotheses still held ($p = 0.016$ each, 6 of 6 patients helped).
@@ -391,7 +403,7 @@ The patients' decision directions agreed with each other. In the recentred tange
 
 Decodability was stable across the study period. The own decoder's accuracy did not change significantly between the three S3 time points (Figure~\ref{fig:neuro}c): it was 87.8\% before treatment ($n = 24$), 85.8\% after treatment ($n = 24$) and 85.6\% at follow up ($n = 19$). The change from before to after treatment was $-2.0$ points ($p = 0.18$), and the change from before treatment to follow up $-2.1$ points ($p = 0.11$ after Holm adjustment). Mu desynchronisation over C3 and C4 was also unchanged ($p = 0.46$ and 0.44). A decoder calibrated in one session therefore faces a stable target in this cohort, and the pooled donors need not be stratified by time point. The same argument explains why a patient's own earlier sessions transfer so well: the direction is the patient's own, and it did not drift. The practical conclusion is to pool real patient data across hospitals rather than synthesise it, to keep each patient's recordings from session to session, and to share stroke recordings in harmonised form.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig6_neuro.pdf}
 \caption{Neurophysiology of S3 (all 24 patients, described with fixed methods) and of the healthy cohort. (a) Relative desynchronisation (ERD) during imagery versus rest, averaged over participants, with the lesion on the left after harmonisation; for healthy participants, left is contralateral to the imagined right hand. (b) Cosine between each patient's direction separating imagery from rest and the pooled direction of healthy donors or of the other patients; the dotted line is the median reliability between two halves of each patient's data. (c) Accuracy of the own decoder in blocked cross validation at the three time points: pre, before treatment; post, after treatment; follow, follow up; $n$, patients.}\label{fig:neuro}
@@ -401,13 +413,13 @@ Decodability was stable across the study period. The own decoder's accuracy did 
 
 When the transferred decoder was EEGNet pretrained with LesionSim data, always transferring harmed 9 of 16 development patients with five calibration pairs and 11 of 16 with ten. The gate harmed 2 and 1 (exact McNemar tests, $p = 0.008$ and $p = 0.001$), as Figure~\ref{fig:gate}a shows. It also raised mean accuracy over always transferring, by 4.2 points with five pairs (95\% CI 0.0 to 8.6, $p = 0.032$) and by 8.1 points with ten (1.7 to 13.3, $p = 0.001$; Figure~\ref{fig:gate}b). The gate mostly kept the patient's own decoder and did not beat always using it (80.6\% versus 81.7\%, and 84.4\% versus 84.7\%). Its value is safety: when it is not known whether a transferred model helps a given patient, the gate decides from calibration data alone. With five pairs it abstained for 4 patients, and the remaining 12 reached 83.5\%.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.78\textwidth]{figures/fig4_safetransfer.pdf}
 \caption{SafeTransfer gate on the S3 development patients ($n = 16$). (a) Patients harmed, that is at least 2 points below their own decoder, when always transferring, always averaging or gating. (b) Mean accuracy for $k = 5$ and $k = 10$ calibration pairs.}\label{fig:gate}
 \end{figure}
 
-Streaming each S3 locked test patient's raw recording through the online pipeline reproduced the offline evaluation. With five calibration pairs, the own decoder averaged 77.1\% both online and offline, and the pooled decoder 82.5\% online against 81.4\% offline; the differences for individual patients came only from the causal filter. Processing took a median of 12.6\,ms per epoch in this streaming check. Over real LSL streams, with the machine under full load, it took 21 to 23\,ms, with a maximum of 54\,ms, and the final accuracies were identical to the streaming check. A decision is therefore available about 4\,s after each cue, at the end of the imagery window.
+Streaming each S3 locked test patient's raw recording through the online pipeline gave the same results as the offline evaluation. With five calibration pairs, the own decoder averaged 77.1\% both online and offline, and the pooled decoder 82.5\% online against 81.4\% offline; the differences for individual patients came only from the causal filter. Processing took a median of 12.6\,ms per epoch in this streaming check. Over real LSL streams, with the machine under full load, it took 21 to 23\,ms, with a maximum of 54\,ms, and the final accuracies were identical to the streaming check. A decision is therefore available about 4\,s after each cue, at the end of the imagery window.
 
 \subsection{Negative findings and limitations}\label{sec:res-limits}
 
@@ -423,7 +435,7 @@ This subsection reports in full the results that did not support the decoder or 
 \item In matched mode, the estimated attenuation and shift mostly sat at their bounds, with $\alpha = 1$ and $\beta = 1$ in the median. The chronic patients' ipsilesional mu desynchronisation was usually not weaker than the healthy participants' ($-13\%$ ipsilateral and $-9\%$ contralateral on average), contrary to the premise of operator O1.
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.86\textwidth]{figures/fig3_lesionsim_settings.pdf}
 \caption{LesionSim with learned settings (S3 development patients, five calibration pairs). Each cell is the mean accuracy of the pooled decoder with healthy donors transformed by one setting of the attenuation $\alpha$ (the share of the ERD that is kept), the contralesional shift $\beta$ and the spread between trials. All settings stay far below donors who are real patients.}\label{fig:lesionsim}
@@ -435,14 +447,14 @@ The window ensemble ens16 was the only decoder that improved significantly on th
 
 Whether a patient can use a BCI of the left versus the right hand could be predicted from calibration data but not from clinical scores. Under chronological calibration on the first 20 trials, the gate passed 8 of 34 development patients. These scored 72.6\% on their later trials, against 51.8\% for the 26 it abstained on ($p < 0.001$). Calibration and later accuracy correlated ($\rho = 0.48$, $p = 0.004$), while later accuracy was unrelated to stroke severity (NIHSS, $\rho = -0.05$) or to time since stroke ($\rho = -0.13$). On the locked test patients the gate passed only one patient (78.9\% on later trials), so the preregistered comparison was not evaluable (Figure~\ref{fig:beijing}c). With a portable system of 29 channels and 40 trials, most patients did not reach significance with any decoder. A short screening session could therefore decide whether feedback driven by imagery is worth offering, and the gate's abstention is the honest output for the rest.
 
-The published S1 baselines could not be reproduced. Porting the authors' released analysis code to their raw data gave 50.56\% (CSP with linear discriminant analysis; 95\% CI 47.8 to 53.4) and 49.29\% (a filter bank of CSP with an SVM; 46.9 to 51.7), against published values of 55.57\% and 57.57\%~\cite{liu2024}. The cleaned recordings gave the same (51.86\% and 49.17\%), in line with the 49.46\% to 51.82\% reported by others on this cohort~\cite{via2026}. An audit of the 34 development patients that used no labels explains part of the difficulty:
+The baselines published with S1 were not reached on its raw data. The analysis code released with the dataset gave 50.56\% (CSP with linear discriminant analysis; 95\% CI 47.8 to 53.4) and 49.29\% (a filter bank of CSP with an SVM; 46.9 to 51.7), against published values of 55.57\% and 57.57\%~\cite{liu2024}. The cleaned recordings gave the same (51.86\% and 49.17\%), in line with the 49.46\% to 51.82\% reported by others on this cohort~\cite{via2026}. An audit of the 34 development patients that used no labels explains part of the difficulty:
 \begin{itemize}
 \item every patient had between 1 and 9 technically faulty channels, and 27 had at least one faulty motor channel;
 \item a rhythm peak above the aperiodic background was present in only 20 patients;
 \item the classic lateralised power difference between C3 and C4 was significant in only 2 patients in the mu band and 4 in the beta band, against 1.7 expected by chance.
 \end{itemize}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fig5_beijing.pdf}
 \caption{S1, imagery of the left versus the right hand in acute stroke. (a) Choice of window and band for each patient: fixed, chosen by nested cross validation (honest) and chosen in hindsight; the hindsight choice overstates accuracy by 13.5 points. (b) The window ensemble (ens16) against the base decoder (base) for development and locked test patients; red lines mark patients harmed. (c) Calibration accuracy on the first 20 trials, from cross validation (CV) that leaves out one pair at a time, against accuracy on the later trials; patients passed by the gate are in blue.}\label{fig:beijing}
@@ -454,29 +466,17 @@ The published S1 baselines could not be reproduced. Porting the authors' release
 \begin{enumerate}
 \item \textbf{Tuning each patient without nesting.} Choosing each patient's best window and band in hindsight gave 72.7\% on S1, while the same choice made honestly by nested cross validation gave 59.2\%, against 57.4\% for a fixed choice (Figure~\ref{fig:beijing}a). The gap of 13.5 points is selection luck on 40 trials~\cite{varoquaux2018}.
 \item \textbf{Transductive drift correction.} Recentring each block of test trials on its own mean improved accuracy by 5.1 points ($p = 0.016$), but the gain vanished when only past trials could be used, as in a real session. It came from looking ahead.
-\item \textbf{Euclidean alignment on data referenced to the common average.} A plain inverse square root amplified the null direction of such data by a factor of about $10^6$, which injected noise into every aligned input and pushed edited copies to values near $10^7$. Before the fix, EEGNet pretrained on healthy data appeared to harm 22 of 34 patients significantly ($p = 0.034$). After dropping null directions, held out healthy accuracy rose from 63.0\% to 67.7\%, and the apparent negative transfer disappeared (15 helped, 16 harmed, $p = 0.26$).
-\item \textbf{Floating point ties in rank tests.} Accuracies are fractions of a few dozen trials, and equal differences, such as four patients each gaining one of 70 test trials, came out of floating point arithmetic a few units in the last place apart. The Wilcoxon test then ranked them apart instead of as ties, which turned the correct $p = 0.047$ of the S3 locked test into the first logged 0.035. All reported $p$ values are recomputed with differences rounded to $10^{-9}$.
+\item \textbf{Euclidean alignment on data referenced to the common average.} A plain inverse square root amplified the null direction of such data by a factor of about $10^6$, which injected noise into every aligned input and pushed edited copies to values near $10^7$. With the plain inverse square root, EEGNet pretrained on healthy data appeared to harm 22 of 34 patients significantly ($p = 0.034$). With the null directions dropped, held out healthy accuracy rose from 63.0\% to 67.7\%, and the apparent negative transfer disappeared (15 helped, 16 harmed, $p = 0.26$).
+\item \textbf{Floating point ties in rank tests.} Accuracies are fractions of a few dozen trials, and equal differences, such as four patients each gaining one of 70 test trials, came out of floating point arithmetic a few units in the last place apart. The Wilcoxon test then ranked them apart instead of as ties, which would turn the correct $p = 0.047$ of the S3 locked test into 0.035. All reported $p$ values are computed with differences rounded to $10^{-9}$.
 \item \textbf{Updates after every trial in alternating designs.} Coadaptive updating after every trial carried the trial order of S3 into the decoders and changed the margin of the combined decoder over coadaptive recalibration from 3.0 to 5.2 points (Section~\ref{sec:res-audit}).
 \end{enumerate}
-Locked test sets, chronological calibration, preregistered confirmation run once, and statistics recomputed from the saved results kept these effects out of the conclusions.
+Locked test sets, chronological calibration, preregistered confirmation run once, and statistics computed from the saved results kept these effects out of the conclusions.
 
-\paragraph{Limitations.} The following limits apply to every result above.
-\begin{itemize}
-\item The locked test sets are small, with 8 and 15 patients, and the confirmation of pooling on S3 rests on a one sided test at $p = 0.047$, close to the threshold. The S1 locked set was used for two preregistered analyses and the S3 locked set for three, each with hypotheses committed beforehand. The combined decoder was confirmed on eight S3 patients from one site, its development used S4 after S4's own confirmatory tests, and at a second hospital it beat the own decoder but not coadaptive recalibration.
-\item The preregistered runs of the combined decoder updated after every trial. In the alternating sequence of S3 this carried the trial order and handicapped coadaptive recalibration of the own decoder; with updates in pairs, the margin over it is 3.0 points, not 5.2.
-\item The largest gains need the cue label of every trial during the session. A training session driven by cues has these labels, but a session paced by the patient does not, and there the stacks that need no labels after calibration apply. Some of their gains were smaller on the cleaned development recordings, although all held on the cleaned locked recordings.
-\item The replication cohort comes from the same institution and amplifier family as S3, and some patients may appear in both. It replicates the method on new recordings, a new limb and a new trial design, but not at a new site. Without the two locked S3 patients who may also be in S4, all six hypotheses about the combined decoder still held.
-\item On the cleaned recordings, the confirmed gain of pooling with a single band shrank to 1.6 points on the locked patients, while the version with the band bank kept its gain. The S4 confirmations used raw recordings, as preregistered.
-\item Decoding of imagery versus rest in these paradigms partly reflects engagement outside the motor system, such as eye movements and posterior alpha. Coadaptive recalibration is an established technique, and we claim only what the transfer methods add to it.
-\item All analyses are offline. The streaming system replays recordings rather than closing the loop with patients, and no clinical outcome was measured.
-\item Device and site are confounded with health status. The healthy donors were recorded on a different system and paradigm from either stroke cohort, so part of the gap between healthy and stroke donors may be technical rather than neurological. Healthy controls recorded on the same device (HEFMI-ICH) carried too little imagery signal to separate the two.
-\item LesionSim covers one family of envelope operators, and a learned generative translation from healthy to stroke EEG was not attempted.
-\item A third cohort of stroke patients who imagined moving the left or the right hand~\cite{mathi2025} requires an access password that had not arrived at the time of writing.
-\end{itemize}
+\paragraph{Limitations.} The locked test sets are small, with 8 and 15 patients, and the combined decoder was confirmed at one site; at a second hospital it beat the own decoder but not coadaptive recalibration. All analyses are offline, with no feedback to patients in a closed loop and no clinical outcome, and the largest gains need the cue label of every trial during the session. Decoding of imagery versus rest partly reflects engagement outside the motor system, and the healthy donors were recorded on different devices from the patients, so part of the gap between healthy and stroke donors may be technical.
 
 \section{Conclusion}\label{sec:conclusion}
 
-For motor imagery BCIs after stroke, data from other stroke patients and from the patient's own earlier sessions shorten calibration. A recentred Riemannian decoder pooled across patients improved decoding with few trials on patients it had never seen and in a preregistered replication, a bank of mu, low beta and high beta covariances strengthened it and kept it robust to artifact cleaning, a returning patient's earlier sessions removed the need for labelled calibration, and a gate that uses only calibration data prevented harmful transfer. Combined with online recentring, coadaptive updating and online model averaging, these sources raised accuracy on held out patients by about 12 points, to between 88\% and 89\%, in their first and later sessions, and the gain survived audits for leakage. At a second hospital, on a weaker task, the combined decoder beat the patient's own decoder but did not significantly exceed coadaptive recalibration. Building such systems will depend on shared, harmonised patient data and on keeping each patient's history.
+For motor imagery BCIs after stroke, data from other stroke patients and from the patient's own earlier sessions shorten calibration. A recentred Riemannian decoder pooled across patients improved decoding with few trials on patients it had never seen and on a second cohort under preregistered tests, a bank of mu, low beta and high beta covariances strengthened it and kept it robust to artifact cleaning, a returning patient's earlier sessions removed the need for labelled calibration, and a gate that uses only calibration data prevented harmful transfer. Combined with online recentring, coadaptive updating and online model averaging, these sources raised accuracy on held out patients by about 12 points, to between 88\% and 89\%, in their first and later sessions, and the gain survived audits for leakage. At a second hospital, on a weaker task, the combined decoder beat the patient's own decoder but did not significantly exceed coadaptive recalibration. Building such systems will depend on shared, harmonised patient data and on keeping each patient's history.
 
 \backmatter
 
@@ -492,7 +492,7 @@ For motor imagery BCIs after stroke, data from other stroke patients and from th
 \item \textbf{Ethics approval} \; Not applicable. The study is a secondary analysis of publicly available EEG datasets released by their original investigators, and no new data were collected from human participants.
 \item \textbf{Consent to participate} \; Not applicable.
 \item \textbf{Consent for publication} \; All authors consent to the publication of this manuscript.
-\item \textbf{Availability of data, materials and code} \; The study uses the public recordings of S1~\cite{liu2024}, S3~\cite{wang2026} and S4~\cite{liu2025gait} and the PhysioNet motor movement and imagery database~\cite{schalk2004,goldberger2000}, each read from its original release. The code that rebuilds the harmonised benchmark, every experiment script, the tables of results for each patient that support every number in this article, the scripts that generate every table and figure, the streaming implementation and the preregistration log with its commit history are available at \url{https://github.com/prayag-1771/HemiShift}.
+\item \textbf{Availability of data, materials and code} \; The study uses the public recordings of S1~\cite{liu2024}, S3~\cite{wang2026} and S4~\cite{liu2025gait} and the PhysioNet motor movement and imagery database~\cite{schalk2004,goldberger2000}, each read from its original release. The code that builds the harmonised benchmark, every experiment script, the tables of results for each patient that support every number in this article, the scripts that generate every table and figure, the streaming implementation and the preregistration log with its commit history are available at \url{https://github.com/prayag-1771/HemiShift}.
 \item \textbf{Authors' contributions} \; Prayag Sharma conceived the study, designed and implemented the experiments, performed the statistical analysis, produced all figures and tables, and drafted the manuscript. Ravi Tiwari supervised the work and reviewed the manuscript. All authors read and approved the final version of the manuscript.
 \end{itemize}
 
