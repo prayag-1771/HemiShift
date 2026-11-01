@@ -2,8 +2,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 from hemishift.models.combo import (bma, crop_features, crops_static, donor_decoder, map_lr,
-                                    map_proba, online, population_prior, stack, static,
-                                    tangent_all)
+                                    map_proba, online, online_many, population_prior, stack,
+                                    static, tangent_all)
 
 
 def _spd(rng, n, c=4, shift=0.0):
@@ -159,6 +159,23 @@ def test_donor_decoder_weighs_groups_equally_and_one_group_is_plain_lr():
                                                        np.concatenate([y, y[:20]]),
                                                        sample_weight=weights)
     assert np.allclose(two.coef_, ref.coef_, atol=1e-5)
+
+
+def test_online_many_gives_exactly_the_separate_online_decoders():
+    rng = np.random.default_rng(8)
+    C, y = _patient(rng)
+    cal, test = np.arange(10), np.arange(10, 40)
+    D, y_d = _patient(rng, n=60)
+    groups = [(tangent_all(D), y_d)]
+    prior = (np.zeros(11), np.full(11, 0.5))
+    specs = {"own": {}, "pooled": {"groups": groups}, "unsup": {"labels": "cal", "groups": groups},
+             "prior": {"prior": prior}, "zero": {"zero": groups[0]},
+             "hl": {"groups": groups, "half_life": 5}, "fix": {"groups": groups, "donor_total": 10}}
+    for block in (1, 2):
+        together = online_many({"a": C}, y, cal, test, ("a",), specs, block)
+        for name, options in specs.items():
+            alone = online({"a": C}, y, cal, test, ("a",), block=block, **options)
+            assert np.array_equal(together[name], alone), name
 
 
 def test_bma_starts_from_the_average_and_moves_to_the_better_decoder():

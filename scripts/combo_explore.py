@@ -59,6 +59,7 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse
 import importlib.util
 import json
+import pickle
 import time
 import warnings
 from pathlib import Path
@@ -75,8 +76,8 @@ from hemishift.data.loaders import load_wang2026sf_epochs
 from hemishift.data.splits import calibration_split
 from hemishift.eval.stats import clean_differences, holm, signed_rank_p
 from hemishift.models.combo import (bma, centred, crop_features, crops_static, online,
-                                    own_exact, pooled_exact, population_prior, static,
-                                    tangent_all)
+                                    online_many, own_exact, pooled_exact, population_prior,
+                                    static, tangent_all)
 from hemishift.paths import CONFIG_DIR, HARMONISED_DIR, RAW_DIR, RESULTS_DIR
 
 
@@ -167,11 +168,11 @@ def load(cohort, phase, channels):
 
 def prepare(cohort):
     """Covariances per session, patient and view (cached under data/harmonised), and labels."""
-    covariances = _script("s3_sweep").covariances
     cov, labels = {}, {}
     for phase in SESSIONS:
         path = HARMONISED_DIR / f"combo_{cohort}_{phase}.npz"
-        if not path.exists():
+        if not path.exists():  # the loaders are imported only here: a cached run needs no torch
+            covariances = _script("s3_sweep").covariances
             X14, X28 = load(cohort, phase, 14), load(cohort, phase, 28)
             assert set(X14) == set(X28)
             arrays = {}
@@ -229,49 +230,92 @@ def priors(TF, labels, pool, targets, views):
 
 # ---------- one patient-session (runs in the workers) ----------
 
+def online_options(others, prior, previous, n_cal):
+    """Every online decoder of rounds 1 and 3: name -> (views, options of combo.online)."""
+    options = {
+        "own_sup": (("830",), {}),
+        "pooled_sup": (("830",), {"groups": [others["830"]]}),
+        "own_sup_bank": (BANK, {}),
+        "pooled_sup_bank": (BANK, {"groups": [others["bank"]]}),
+        "pooled_sup_bank28": (BANK28, {"groups": [others["bank28"]]}),
+        "prior_sup_bank": (BANK, {"prior": prior}),
+        "pooled_unsup_bank": (BANK, {"labels": "cal", "groups": [others["bank"]]}),
+        "pooled_sup_bank_fix": (BANK, {"groups": [others["bank"]], "donor_total": n_cal}),
+        "pooled_sup_bank_hl20": (BANK, {"groups": [others["bank"]], "half_life": 20}),
+        "pooled_sup_bank_all": (BANK, {"groups": [others["bank_all"]]}),
+        "pooled_sup_early": (EARLY, {"groups": [others["early"]]}),
+        "pooled_sup_late": (LATE, {"groups": [others["late"]]}),
+    }
+    if previous is not None:
+        both28 = [previous["bank28"], others["bank28"]]
+        options.update({
+            "prevoth_sup_bank": (BANK, {"groups": [previous["bank"], others["bank"]]}),
+            "prevoth_sup_bank28": (BANK28, {"groups": both28}),
+            "prevzero_unsup_bank": (BANK, {"zero": previous["bank"]}),
+            "prevoth_sup_bank28_fix": (BANK28, {"groups": both28, "donor_total": n_cal}),
+            "prevoth_sup_bank28_hl20": (BANK28, {"groups": both28, "half_life": 20}),
+        })
+    return options
+
+
+def online_decoders(names, cov, y, cal, test, others, prior, previous, block):
+    """The named online decoders. Those on the same views share one re-centring pass
+    (combo.online_many: the same numbers as one combo.online call each, computed faster)."""
+    options = online_options(others, prior, previous, len(cal))
+    by_views = {}
+    for name in names:
+        views, o = options[name]
+        by_views.setdefault(views, {})[name] = o
+    p = {}
+    for views, specs in by_views.items():
+        p.update(online_many(cov, y, cal, test, views, specs, block))
+    return p
+
+
+def decoders(cov, y, cal, test, others, others_C, crops, prior, previous, block, more=()):
+    """P(MI) of the test trials from round 1's decoders and their bma, then the online decoders
+    named in `more`."""
+    later = previous is not None
+    p = {
+        "own": own_exact(cov["830"], y, cal, test),
+        "pooled": pooled_exact(cov["830"], y, cal, test, *others_C),
+        "own_bank": static(cov, y, cal, test, BANK),
+        "pooled_bank": static(cov, y, cal, test, BANK, [others["bank"]]),
+        "pooled_bank28": static(cov, y, cal, test, BANK28, [others["bank28"]]),
+        "pooled_bank_crops": crops_static(crops_of(cov), y, cal, test, crops),
+        "prior_bank": static(cov, y, cal, test, BANK, prior=prior),
+    }
+    if later:
+        p.update({
+            "prev_bank": static(cov, y, cal, test, BANK, [previous["bank"]]),
+            "prevoth_bank": static(cov, y, cal, test, BANK, [previous["bank"], others["bank"]]),
+            "prevoth_bank28": static(cov, y, cal, test, BANK28, [previous["bank28"], others["bank28"]]),
+            "prevzero_bank": static(cov, y, cal, test, BANK, zero=previous["bank"]),
+        })
+    first = ONLINE + UNSUP + (ONLINE_LATER + UNSUP_LATER if later else ())
+    p.update(online_decoders(first + tuple(more), cov, y, cal, test, others, prior, previous, block))
+    order = STATIC + ONLINE + UNSUP + (STATIC_LATER + ONLINE_LATER + UNSUP_LATER if later else ())
+    out = {n: p[n] for n in order}
+    out["bma"] = bma([p[e] for e in EXPERTS + (EXPERTS_LATER if later else ())], y[test], block)
+    out.update({n: p[n] for n in more})
+    return out
+
+
+def record(rows, probs, phase, s, k, p, yt):
+    rows.append({"session": phase, "subject": s, "k": k, "n_test": len(yt),
+                 **{n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()}})
+    probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
+    probs[f"{phase}|{s}|{k}|y"] = yt
+
+
 def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1):
     """All decoders for one patient-session and every k. others: view set -> donor group of the
     other patients in this session; previous: view set -> the patient's earlier sessions."""
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     rows, probs = [], {}
     for k, (cal, test) in splits.items():
-        yt = y[test]
-        p = {
-            "own": own_exact(cov["830"], y, cal, test),
-            "pooled": pooled_exact(cov["830"], y, cal, test, *others_C),
-            "own_bank": static(cov, y, cal, test, BANK),
-            "pooled_bank": static(cov, y, cal, test, BANK, [others["bank"]]),
-            "pooled_bank28": static(cov, y, cal, test, BANK28, [others["bank28"]]),
-            "pooled_bank_crops": crops_static(crops_of(cov), y, cal, test, crops),
-            "prior_bank": static(cov, y, cal, test, BANK, prior=prior),
-            "own_sup": online(cov, y, cal, test, ("830",), block=block),
-            "pooled_sup": online(cov, y, cal, test, ("830",), groups=[others["830"]], block=block),
-            "own_sup_bank": online(cov, y, cal, test, BANK, block=block),
-            "pooled_sup_bank": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block),
-            "pooled_sup_bank28": online(cov, y, cal, test, BANK28, groups=[others["bank28"]], block=block),
-            "prior_sup_bank": online(cov, y, cal, test, BANK, prior=prior, block=block),
-            "pooled_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=[others["bank"]], block=block),
-        }
-        experts = list(EXPERTS)
-        if previous is not None:
-            p.update({
-                "prev_bank": static(cov, y, cal, test, BANK, [previous["bank"]]),
-                "prevoth_bank": static(cov, y, cal, test, BANK, [previous["bank"], others["bank"]]),
-                "prevoth_bank28": static(cov, y, cal, test, BANK28,
-                                         [previous["bank28"], others["bank28"]]),
-                "prevzero_bank": static(cov, y, cal, test, BANK, zero=previous["bank"]),
-                "prevoth_sup_bank": online(cov, y, cal, test, BANK,
-                                           groups=[previous["bank"], others["bank"]], block=block),
-                "prevoth_sup_bank28": online(cov, y, cal, test, BANK28,
-                                             groups=[previous["bank28"], others["bank28"]], block=block),
-                "prevzero_unsup_bank": online(cov, y, cal, test, BANK, zero=previous["bank"], block=block),
-            })
-            experts += EXPERTS_LATER
-        p["bma"] = bma([p[e] for e in experts], yt, block)
-        rows.append({"session": phase, "subject": s, "k": k, "n_test": len(test),
-                     **{n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()}})
-        probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
-        probs[f"{phase}|{s}|{k}|y"] = yt
+        p = decoders(cov, y, cal, test, others, others_C, crops, prior, previous, block)
+        record(rows, probs, phase, s, k, p, y[test])
     return rows, probs
 
 
@@ -298,38 +342,36 @@ def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, pre
     return rows, probs
 
 
-def run_patient_r3(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1):
+def run_patient_r3(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block=1,
+                   saved=None):
     """Round 3 (exploratory): round 1's decoders recomputed in the same run, then
       pooled_sup_bank_fix   donors keep the calibration's total weight as labelled trials accrue
       pooled_sup_bank_hl20  forgetting: labelled trials weigh 0.5 ** (age / 20 trials)
       pooled_sup_bank_all   donors from the other patients' every session, not only this one
       pooled_sup_early/late co-adaptive pooled banks on 0.5-2.5 s and 2.0-4.0 s after the cue
       prevoth_sup_bank28_fix / _hl20   the same two changes to the returning-patient stack
-      bma3                  model averaging over round 1's members and every decoder above"""
-    rows, probs = run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previous, block)
-    for row, (k, (cal, test)) in zip(rows, splits.items()):
+      bma3                  model averaging over round 1's members and every decoder above
+    The new online decoders share round 1's re-centring passes (`decoders`).
+    saved: k -> (probabilities, accuracies, test labels) of round 1 from a committed run with the
+    same settings (`run(reuse=...)`); round 1 is then taken from it, not recomputed. bma3 always
+    averages round 1's members as saved (float32), as declared."""
+    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+    later = previous is not None
+    more = R3[:-1] + (R3_LATER if later else ())
+    experts = EXPERTS + (EXPERTS_LATER if later else ())
+    rows, probs = [], {}
+    for k, (cal, test) in splits.items():
         yt = y[test]
-        p = {
-            "pooled_sup_bank_fix": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block,
-                                          donor_total=len(cal)),
-            "pooled_sup_bank_hl20": online(cov, y, cal, test, BANK, groups=[others["bank"]], block=block,
-                                           half_life=20),
-            "pooled_sup_bank_all": online(cov, y, cal, test, BANK, groups=[others["bank_all"]], block=block),
-            "pooled_sup_early": online(cov, y, cal, test, EARLY, groups=[others["early"]], block=block),
-            "pooled_sup_late": online(cov, y, cal, test, LATE, groups=[others["late"]], block=block),
-        }
-        experts = list(EXPERTS)
-        if previous is not None:
-            both28 = [previous["bank28"], others["bank28"]]
-            p["prevoth_sup_bank28_fix"] = online(cov, y, cal, test, BANK28, groups=both28, block=block,
-                                                 donor_total=len(cal))
-            p["prevoth_sup_bank28_hl20"] = online(cov, y, cal, test, BANK28, groups=both28, block=block,
-                                                  half_life=20)
-            experts += EXPERTS_LATER
-        members = [probs[f"{phase}|{s}|{k}|{e}"] for e in experts] + list(p.values())
-        p["bma3"] = bma(members, yt, block)
-        row.update({n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()})
-        probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
+        if saved is None:
+            p = decoders(cov, y, cal, test, others, others_C, crops, prior, previous, block, more)
+        else:
+            first, exact, y_saved = saved[k]
+            assert np.array_equal(y_saved, yt), "the committed run had other test trials"
+            p = {**first, **online_decoders(more, cov, y, cal, test, others, prior, previous, block)}
+        p["bma3"] = bma([p[e].astype(np.float32) for e in experts] + [p[n] for n in more], yt, block)
+        record(rows, probs, phase, s, k, p, yt)
+        if saved is not None:
+            rows[-1].update(exact)  # round 1's accuracies exactly as committed
     return rows, probs
 
 
@@ -348,14 +390,45 @@ def split(cohort, y, k, chrono=False):
     return calibration_split(y, k, mode="first")
 
 
-def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False):
+def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False, checkpoint=None,
+        reuse=False):
     """Decode every patient of `cohort`, the other patients being the donors. With `targets`,
     decode only those: a second cohort (e.g. "s3locked", with all of `cohort` as the donor
     pool), or a list of `cohort`'s own patients (held out of the pool; a dry run).
     Audits: `block` (updates between blocks of trials only, see combo.online); `permute`, a
     seed: every patient's labels are shuffled within each session, donors included, so every
-    decoder must fall to chance unless information leaks; `chrono` (see `split`)."""
+    decoder must fall to chance unless information leaks; `chrono` (see `split`).
+    checkpoint: a directory; each patient-session is saved there as soon as it is done, and a
+    rerun skips the saved ones (a crash loses only the patient-sessions in progress).
+    The longest patient-sessions are dispatched first, so none is left running alone at the
+    end; results are collected in the order they finish.
+    reuse (round 3 only): take round 1 from the committed run of `cohort` (combo_<cohort>.csv
+    and its per-trial probabilities), which used the same settings, instead of recomputing it."""
     started = time.time()
+    assert not reuse or (worker is run_patient_r3 and targets is None and block == 1
+                         and permute is None and not chrono)
+    if reuse:
+        saved_probs = np.load(RESULTS_DIR / "combo" / f"{cohort}_probs.npz")
+        saved_table = pd.read_csv(RESULTS_DIR / "summary" / f"combo_{cohort}.csv").set_index(
+            ["session", "subject", "k"])
+        saved_keys = set(saved_probs.files)
+        first_round = [n for n in saved_table.columns if n != "n_test"]
+
+        def saved(phase, s):
+            out = {}
+            for k in KS:
+                names = [n for n in first_round if f"{phase}|{s}|{k}|{n}" in saved_keys]
+                row = saved_table.loc[(phase, s, k)]
+                out[k] = ({n: saved_probs[f"{phase}|{s}|{k}|{n}"] for n in names},
+                          {n: float(row[n]) for n in names}, saved_probs[f"{phase}|{s}|{k}|y"])
+            return out
+    done = {}
+    if checkpoint is not None:
+        checkpoint = Path(checkpoint)
+        checkpoint.mkdir(parents=True, exist_ok=True)
+        for path in checkpoint.glob("*.pkl"):
+            done[path.stem] = pickle.loads(path.read_bytes())
+        print(f"checkpoint {checkpoint}: {len(done)} patient-sessions already done", flush=True)
     cov, labels = prepare(cohort)
     if permute is not None:
         rng = np.random.default_rng(permute)
@@ -380,9 +453,12 @@ def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False)
     print(f"donor features ready ({time.time() - started:.0f} s)", flush=True)
 
     def tasks():  # lazily, so only the dispatched patients' donor stacks are in memory
-        for phase in SESSIONS:
-            prior = priors(TF[phase], labels[phase], pool[phase], decode[phase], BANK)
-            for s in decode[phase]:
+        for phase in SESSIONS[::-1]:  # later sessions first: they have the most decoders
+            todo = [s for s in decode[phase] if f"{phase}_{s}" not in done]
+            if not todo:
+                continue
+            prior = priors(TF[phase], labels[phase], pool[phase], todo, BANK)
+            for s in sorted(todo, key=lambda s: -len(labels[phase][s])):  # most trials first
                 previous = None
                 if phase in LATER:
                     if any(s not in labels[p] for p in LATER[phase]):
@@ -403,16 +479,25 @@ def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False)
                 crops = (np.concatenate([TF[phase][o]["crops"] for o in rest]), others["bank"][1])
                 y = labels[phase][s]
                 assert s not in rest and all(o in pool[phase] for o in rest)
+                extra = {"saved": saved(phase, s)} if reuse else {}
                 yield delayed(worker)(phase, s, cov[phase][s], y,
                                       {k: split(cohort, y, k, chrono) for k in KS}, others, others_C,
-                                      crops, prior[s], previous, block)
+                                      crops, prior[s], previous, block, **extra)
 
     os.environ["HEMISHIFT_NO_TORCH"] = "1"  # workers spawned from here skip torch (hemishift.models.combo)
     rows, probs = [], {}
-    for r, p in Parallel(n_jobs=jobs, return_as="generator")(tasks()):
+    for r, p in done.values():
+        rows += r
+        probs.update(p)
+    # pre_dispatch = n_jobs: one queued task per worker keeps fewer donor stacks in memory
+    for r, p in Parallel(n_jobs=jobs, return_as="generator_unordered", pre_dispatch="n_jobs")(tasks()):
         rows += r
         probs.update(p)
         first = r[0]
+        if checkpoint is not None:
+            path = checkpoint / f"{first['session']}_{first['subject']}.pkl"
+            path.with_suffix(".tmp").write_bytes(pickle.dumps((r, p)))
+            os.replace(path.with_suffix(".tmp"), path)
         print(f"  {first['session']:6s} sub {first['subject']:2d} k=5: " + " ".join(
             f"{n} {v:.1f}" for n, v in first.items() if n not in ("session", "subject", "k", "n_test"))
             + f" ({time.time() - started:.0f} s)", flush=True)
@@ -582,7 +667,10 @@ def main():
         for cohort in cohorts:
             out = RESULTS_DIR / "summary" / f"combo_{cohort}_r3.csv"
             if not args.stats_only:
-                table, _ = run(cohort, args.jobs, run_patient_r3, block=2 if cohort.startswith("s3") else 1)
+                block = 2 if cohort.startswith("s3") else 1
+                # S4's committed round 1 used these settings (per-trial updates); S3's did not
+                table, _ = run(cohort, args.jobs, run_patient_r3, block=block, reuse=block == 1,
+                               checkpoint=RESULTS_DIR / "combo" / "checkpoints" / f"{cohort}_r3_block{block}")
                 table.to_csv(out, index=False)
             tables[cohort] = pd.read_csv(out)
         report_r3(tables)

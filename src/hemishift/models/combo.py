@@ -193,10 +193,26 @@ def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=N
     half_life: the patient's labelled trials weigh 0.5 ** (age / half_life), age counted in
     trials back from the newest (forgetting). donor_total: each donor group's total weight
     (default: as much as the patient's labelled trials)."""
-    fixed = donor_decoder(zero) if zero is not None else None
-    model, w_map = lr(warm=True), None
+    options = dict(labels=labels, groups=groups, prior=prior, zero=zero, half_life=half_life,
+                   donor_total=donor_total)
+    return online_many(cov, y, cal, test, views, {None: options}, block)[None]
+
+
+def online_many(cov, y, cal, test, views, specs, block=1):
+    """Several `online` decoders on the same views in one pass. specs: name -> keyword options
+    of `online` (labels, groups, prior, zero, half_life, donor_total). The re-centring is the
+    same for all of them, so it is computed once per update; each decoder is then fitted
+    exactly as `online` fits it (the same numbers as one `online` call each)."""
+    decoders = {}
+    for name, o in specs.items():
+        zero = o.get("zero")
+        decoders[name] = dict(labels=o.get("labels", "all"), groups=o.get("groups", ()),
+                              prior=o.get("prior"), half_life=o.get("half_life"),
+                              donor_total=o.get("donor_total"),
+                              fixed=donor_decoder(zero) if zero is not None else None,
+                              model=lr(warm=True), w_map=None, fitted=None)
     means = [None] * len(views)
-    p = np.empty(len(test))
+    p = {name: np.empty(len(test)) for name in specs}
     state = None
     for i, trial in enumerate(test):
         seen = i - i % block
@@ -208,22 +224,27 @@ def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=N
                 Ws.append(invsqrtm(means[j]))
             T = np.hstack([tangent_space(W @ cov[v][ref] @ W, np.eye(cov[v].shape[-1]), metric="riemann")
                            for W, v in zip(Ws, views)])
-            lab = np.arange(len(ref)) if labels == "all" else np.arange(len(cal))
-            if fixed is not None:
-                fitted = fixed
-            elif prior is not None:
-                w_map = map_lr(T[lab], y[ref][lab], prior, w_map)
-                fitted = w_map
-            else:
-                age = len(lab) - 1 - np.arange(len(lab))
-                weights = None if half_life is None else 0.5 ** (age / half_life)
-                X, Y, w = stack(T[lab], y[ref][lab], groups, weights, donor_total)
-                fitted = model.fit(X, Y, sample_weight=w)
-            state = (seen, Ws, fitted)
-        _, Ws, fitted = state
+            for d in decoders.values():
+                lab = np.arange(len(ref)) if d["labels"] == "all" else np.arange(len(cal))
+                if d["fixed"] is not None:
+                    d["fitted"] = d["fixed"]
+                elif d["prior"] is not None:
+                    d["w_map"] = map_lr(T[lab], y[ref][lab], d["prior"], d["w_map"])
+                    d["fitted"] = d["w_map"]
+                else:
+                    age = len(lab) - 1 - np.arange(len(lab))
+                    weights = None if d["half_life"] is None else 0.5 ** (age / d["half_life"])
+                    X, Y, w = stack(T[lab], y[ref][lab], d["groups"], weights, d["donor_total"])
+                    d["fitted"] = d["model"].fit(X, Y, sample_weight=w)
+            state = (seen, Ws)
+        Ws = state[1]
         t = np.hstack([tangent_space(W @ cov[v][[trial]] @ W, np.eye(cov[v].shape[-1]), metric="riemann")
                        for W, v in zip(Ws, views)])
-        p[i] = map_proba(fitted, t)[0] if prior is not None and fixed is None else fitted.predict_proba(t)[0, 1]
+        for name, d in decoders.items():
+            if d["prior"] is not None and d["fixed"] is None:
+                p[name][i] = map_proba(d["fitted"], t)[0]
+            else:
+                p[name][i] = d["fitted"].predict_proba(t)[0, 1]
     return p
 
 

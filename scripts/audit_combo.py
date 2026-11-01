@@ -44,9 +44,13 @@ KEY = ("own", "pooled_bank", "pooled_unsup_bank", "own_sup", "pooled_sup_bank", 
        "prevoth_unsup_bank28", "prevzero_unsup_bank", "prevoth_sup_bank28")
 
 
-def both_rounds(donors, jobs, **options):
-    first, _ = combo.run(donors, jobs, combo.run_patient, **options)
-    second, _ = combo.run(donors, jobs, combo.run_patient_r2, **options)
+def both_rounds(donors, jobs, tag=None, **options):
+    """Rounds 1 and 2 under the audit's options. tag: each patient-session is saved under
+    results/combo/checkpoints/audit_<tag>_r<round> as it finishes, so a rerun resumes."""
+    saved = {r: None if tag is None else RESULTS_DIR / "combo" / "checkpoints" / f"audit_{tag}_r{r}"
+             for r in (1, 2)}
+    first, _ = combo.run(donors, jobs, combo.run_patient, checkpoint=saved[1], **options)
+    second, _ = combo.run(donors, jobs, combo.run_patient_r2, checkpoint=saved[2], **options)
     return first.merge(second, on=["session", "subject", "k"], validate="one_to_one")
 
 
@@ -107,7 +111,7 @@ def chrono(jobs):
     if out.exists():
         after = pd.read_csv(out)
     else:
-        after = both_rounds("s4", jobs, chrono=True)
+        after = both_rounds("s4", jobs, tag="chrono_s4", chrono=True)
         after.to_csv(out, index=False)
     compare("strictly chronological calibration, S4", combo.load_tables("s4"), after)
 
