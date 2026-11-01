@@ -1,0 +1,91 @@
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+
+from hemishift.models.combo import (bma, crop_features, crops_static, map_lr, map_proba, online,
+                                    population_prior, stack, static, tangent_all)
+
+
+def _spd(rng, n, c=4, shift=0.0):
+    """n random SPD matrices; `shift` inflates the first channel's variance."""
+    A = rng.standard_normal((n, c, 3 * c))
+    C = A @ A.transpose(0, 2, 1) / (3 * c)
+    C[:, 0, 0] += shift
+    return C
+
+
+def _patient(rng, n=40, c=4):
+    y = np.tile([0, 1], n // 2)
+    C = np.concatenate([_spd(rng, 1, c, 1.5 * label) for label in y])
+    return C, y
+
+
+def test_stack_gives_each_donor_group_the_patients_weight():
+    T = np.zeros((6, 2))
+    groups = [(np.zeros((30, 2)), np.zeros(30)), (np.zeros((12, 2)), np.ones(12))]
+    _, Y, w = stack(T, np.zeros(6), groups)
+    assert len(Y) == 48
+    assert np.isclose(w[:6].sum(), 6) and np.isclose(w[6:36].sum(), 6) and np.isclose(w[36:].sum(), 6)
+
+
+def test_map_lr_tends_to_lr_with_a_flat_prior_and_to_the_prior_mean_with_a_tight_one():
+    rng = np.random.default_rng(0)
+    T = rng.standard_normal((60, 3))
+    y = (T[:, 0] + 0.5 * rng.standard_normal(60) > 0).astype(int)
+    mean = np.array([0.3, -0.2, 0.1, 0.05])
+    flat = map_lr(T, y, (mean, np.full(4, 1e6)))
+    ref = LogisticRegression(C=1e6, max_iter=5000).fit(T, y)
+    assert np.allclose(flat, np.append(ref.coef_[0], ref.intercept_[0]), atol=1e-2)
+    tight = map_lr(T, y, (mean, np.full(4, 1e-8)))
+    assert np.allclose(tight, mean, atol=1e-4)
+    assert np.allclose(map_proba(tight, T), 1 / (1 + np.exp(-(T @ mean[:-1] + mean[-1]))))
+
+
+def test_population_prior_is_the_mean_and_variance_of_the_other_patients():
+    W = np.array([[1.0, 0.0], [3.0, 2.0], [2.0, 4.0]])
+    mean, var = population_prior(W, floor=0.0)
+    assert np.allclose(mean, [2.0, 2.0]) and np.allclose(var, [1.0, 4.0])
+
+
+def test_online_first_trial_equals_the_static_decoder():
+    rng = np.random.default_rng(1)
+    C, y = _patient(rng)
+    cov = {"a": C}
+    cal, test = np.arange(10), np.arange(10, 40)
+    p_static = static(cov, y, cal, test, ("a",))
+    p_online = online(cov, y, cal, test, ("a",))
+    assert np.isclose(p_online[0], p_static[0])
+    zero = (tangent_all(_patient(rng)[0]), y)
+    assert np.isclose(online(cov, y, cal, test, ("a",), zero=zero)[0],
+                      static(cov, y, cal, test, ("a",), zero=zero)[0])
+
+
+def test_online_uses_only_earlier_labels():
+    rng = np.random.default_rng(2)
+    C, y = _patient(rng)
+    cov = {"a": C}
+    cal, test = np.arange(10), np.arange(10, 40)
+    p = online(cov, y, cal, test, ("a",))
+    flipped = y.copy()
+    flipped[25:] = 1 - flipped[25:]  # labels of trial 25 onward change; decisions up to 25 must not
+    q = online(cov, flipped, cal, test, ("a",))
+    assert np.allclose(p[:16], q[:16])  # test[15] is trial 25
+
+
+def test_one_full_window_crop_equals_the_pooled_static_decoder():
+    rng = np.random.default_rng(3)
+    C, y = _patient(rng)
+    D, y_d = _patient(rng, n=60)
+    cal, test = np.arange(10), np.arange(10, 40)
+    donors = crop_features([D[:, None]])
+    p_crops = crops_static([C[:, None]], y, cal, test, (donors, y_d))
+    p_static = static({"a": C}, y, cal, test, ("a",), [(tangent_all(D), y_d)])
+    assert np.allclose(p_crops, p_static, atol=1e-6)
+
+
+def test_bma_starts_from_the_average_and_moves_to_the_better_decoder():
+    y = np.tile([0, 1], 20)
+    good = np.where(y == 1, 0.9, 0.1)
+    bad = np.full(len(y), 0.5)
+    out = bma([good, bad], y)
+    assert np.isclose(out[0], (good[0] + bad[0]) / 2)
+    assert abs(out[-1] - good[-1]) < 1e-3
