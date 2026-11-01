@@ -412,7 +412,9 @@ def run(cohort, jobs, worker, targets=None, block=1, permute=None, chrono=False,
         saved_table = pd.read_csv(RESULTS_DIR / "summary" / f"combo_{cohort}.csv").set_index(
             ["session", "subject", "k"])
         saved_keys = set(saved_probs.files)
-        first_round = [n for n in saved_table.columns if n != "n_test"]
+        # round 1's columns in the order `decoders` returns them
+        first_round = STATIC + ONLINE + UNSUP + STATIC_LATER + ONLINE_LATER + UNSUP_LATER + ("bma",)
+        assert set(first_round) == set(saved_table.columns) - {"n_test"}
 
         def saved(phase, s):
             out = {}
