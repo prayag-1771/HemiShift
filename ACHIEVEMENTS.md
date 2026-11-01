@@ -36,6 +36,19 @@ only.
 
 ## Log
 
+### 2026-11-01 · DECLARED BEFORE RUNNING: artifact check of the combination study (S3 dev, ICA-cleaned)
+
+- **Why:** round 1 found co-adaptive bank stacks 9–12 points above the own decoder in both
+  cohorts. In S3, imagery vs rest is partly separable by eye and visual activity. A decoder
+  that keeps updating could learn that artifact as well as motor activity.
+- **What:** every round 1 and round 2 decoder is run on the authors' ICA-cleaned release of
+  the 16 dev patients, all three sessions ("s3clean").
+  - Same 14- and 28-channel groups, each re-referenced to its own average. The channels are
+    taken from the 42 common to both releases.
+  - Each release keeps its own trials, because cleaning cut some segments.
+- **Reading:** a decoder's gain over the own decoder should stay similar on cleaned data. A
+  gain that shrinks a lot is counted as partly artifact.
+
 ### 2026-11-01 · DECLARED BEFORE RUNNING: combination study, round 2
 
 - **Why:** in round 1 on S3 (S4 still running), the best decoder without labels during the

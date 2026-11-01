@@ -58,6 +58,7 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import importlib.util
+import json
 import time
 import warnings
 from pathlib import Path
@@ -69,12 +70,14 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 
 from hemishift.data.channels import EXTENDED_TEMPLATE
+from hemishift.data.harmonise import common_average
+from hemishift.data.loaders import load_wang2026sf_epochs
 from hemishift.data.splits import calibration_split
 from hemishift.eval.stats import clean_differences, holm, signed_rank_p
 from hemishift.models.combo import (bma, centred, crop_features, crops_static, online,
                                     own_exact, pooled_exact, population_prior, static,
                                     tangent_all)
-from hemishift.paths import HARMONISED_DIR, RESULTS_DIR
+from hemishift.paths import CONFIG_DIR, HARMONISED_DIR, RAW_DIR, RESULTS_DIR
 
 
 def _script(name):
@@ -109,9 +112,40 @@ FLOOR = 1e-4  # prior variance floor
 
 # ---------- data (main process) ----------
 
+def load_clean(phase):
+    """S3 dev (rest, MI) pairs from the authors' ICA-cleaned release on the 42 channels common
+    with the raw recording (s3_processed_check), cached under data/harmonised."""
+    check = _script("s3_processed_check")
+    path = HARMONISED_DIR / f"s3proc_dev_{phase}_processed_t42.npz"
+    split = json.loads((CONFIG_DIR / "splits" / "wang2026sf_locked_test.json").read_text())
+    if not path.exists():
+        patients = {}
+        for subject in split["dev"]:
+            if not (RAW_DIR / "wang2026sf" / "processeddata" / f"sub-{subject:02d}" / phase).is_dir():
+                continue
+            e = load_wang2026sf_epochs([subject], phases=(phase,), template=check.COMMON42,
+                                       source="processed")
+            mi = np.flatnonzero(e.labels == "affected_mi")
+            paired = mi[(mi > 0) & (e.labels[mi - 1] == "rest")]
+            order = np.ravel(np.column_stack([paired - 1, paired]))
+            patients[subject] = (e.X[order].astype(np.float32),
+                                 (e.labels[order] == "affected_mi").astype(int))
+            print(f"  cleaned {phase} sub {subject}: {order.size} epochs", flush=True)
+        np.savez(path, **{f"X{s}": X for s, (X, _) in patients.items()},
+                 **{f"y{s}": y for s, (_, y) in patients.items()})
+    data = np.load(path)
+    return {s: (data[f"X{s}"], data[f"y{s}"]) for s in split["dev"] if f"X{s}" in data.files}
+
+
 def load(cohort, phase, channels):
-    """Epochs in recording order and labels (MI 1) per patient; 14 or 28 channels."""
+    """Epochs in recording order and labels (MI 1) per patient; 14 or 28 channels, each group
+    re-referenced to its own average."""
     sweep, s4 = _script("s3_sweep"), _script("s4_replication")
+    if cohort == "s3clean":
+        common = _script("s3_processed_check").COMMON42
+        template = EXTENDED_TEMPLATE if channels == 14 else sweep.CENTRAL28
+        return {s: (common_average(X[:, [common.index(ch) for ch in template]]).astype(np.float32), y)
+                for s, (X, y) in load_clean(phase).items()}
     if cohort == "s3":
         if channels == 14:
             return sweep.load("dev", phase, EXTENDED_TEMPLATE, sweep.WINDOWS["std"])
@@ -259,7 +293,7 @@ def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, pre
 # ---------- driver ----------
 
 def split(cohort, y, k):
-    if cohort == "s3":
+    if cohort.startswith("s3"):
         return np.arange(2 * k), np.arange(2 * k, len(y))  # first k (rest, MI) pairs
     return calibration_split(y, k, mode="first")
 
@@ -425,7 +459,7 @@ def load_tables(cohort):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cohort", default="both", choices=("s3", "s4", "both"))
+    parser.add_argument("--cohort", default="both", choices=("s3", "s4", "s3clean", "both"))
     parser.add_argument("--round", type=int, default=1, choices=(1, 2))
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument("--stats-only", action="store_true",
@@ -440,7 +474,7 @@ def main():
             table.to_csv(RESULTS_DIR / "summary" / f"combo_{cohort}{suffix}.csv", index=False)
             (RESULTS_DIR / "combo").mkdir(parents=True, exist_ok=True)
             np.savez_compressed(RESULTS_DIR / "combo" / f"{cohort}_probs{suffix}.npz", **probs)
-            if args.round == 1:
+            if args.round == 1 and cohort != "s3clean":
                 check(cohort, table)
     report({cohort: load_tables(cohort) for cohort in cohorts})
 
