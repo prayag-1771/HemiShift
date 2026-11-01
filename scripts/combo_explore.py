@@ -146,10 +146,11 @@ def load(cohort, phase, channels):
         template = EXTENDED_TEMPLATE if channels == 14 else sweep.CENTRAL28
         return {s: (common_average(X[:, [common.index(ch) for ch in template]]).astype(np.float32), y)
                 for s, (X, y) in load_clean(phase).items()}
-    if cohort == "s3":
+    if cohort in ("s3", "s3locked"):
+        group = "dev" if cohort == "s3" else "test"
         if channels == 14:
-            return sweep.load("dev", phase, EXTENDED_TEMPLATE, sweep.WINDOWS["std"])
-        data = sweep.load("dev", phase, sweep.ALL59, sweep.WINDOWS["std"])
+            return sweep.load(group, phase, EXTENDED_TEMPLATE, sweep.WINDOWS["std"])
+        data = sweep.load(group, phase, sweep.ALL59, sweep.WINDOWS["std"])
     else:
         if channels == 14:
             return s4.load_patients(phase)
@@ -208,15 +209,15 @@ def donor_group(TF, labels, subjects, views):
     return T, np.concatenate([labels[s] for s in subjects])
 
 
-def priors(TF, labels, subjects, views):
-    """prior[s]: the population prior from the other patients' own decoders (each fitted on
-    all its epochs)."""
+def priors(TF, labels, pool, targets, views):
+    """prior[s]: the population prior from the own decoders (each fitted on all its epochs) of
+    the pool patients other than s."""
     W = {}
-    for s in subjects:
+    for s in pool:
         model = LogisticRegression(C=1.0, max_iter=1000).fit(
             np.hstack([TF[s][v] for v in views]), labels[s])
         W[s] = np.append(model.coef_[0], model.intercept_[0])
-    return {s: population_prior([W[o] for o in subjects if o != s], FLOOR) for s in subjects}
+    return {s: population_prior([W[o] for o in pool if o != s], FLOOR) for s in targets}
 
 
 # ---------- one patient-session (runs in the workers) ----------
@@ -298,19 +299,34 @@ def split(cohort, y, k):
     return calibration_split(y, k, mode="first")
 
 
-def run(cohort, jobs, worker):
+def run(cohort, jobs, worker, targets=None):
+    """Decode every patient of `cohort`, the other patients being the donors. With `targets`,
+    decode only those: a second cohort (e.g. "s3locked", with all of `cohort` as the donor
+    pool), or a list of `cohort`'s own patients (held out of the pool; a dry run)."""
     started = time.time()
     cov, labels = prepare(cohort)
-    print(f"{cohort}: data ready ({time.time() - started:.0f} s); patients per session "
-          f"{ {ph: len(labels[ph]) for ph in SESSIONS} }", flush=True)
+    pool = {ph: sorted(labels[ph]) for ph in SESSIONS}
+    decode = pool
+    if isinstance(targets, str):
+        extra_cov, extra_labels = prepare(targets)
+        assert not any(set(extra_labels[ph]) & set(labels[ph]) for ph in SESSIONS)
+        for ph in SESSIONS:
+            cov[ph].update(extra_cov[ph])
+            labels[ph].update(extra_labels[ph])
+        decode = {ph: sorted(extra_labels[ph]) for ph in SESSIONS}
+    elif targets is not None:
+        decode = {ph: [s for s in pool[ph] if s in targets] for ph in SESSIONS}
+        pool = {ph: [s for s in pool[ph] if s not in targets] for ph in SESSIONS}
+    print(f"{cohort}{'' if targets is None else f' -> {targets}'}: data ready "
+          f"({time.time() - started:.0f} s); patients decoded per session "
+          f"{ {ph: len(decode[ph]) for ph in SESSIONS} }", flush=True)
     TF = {ph: {s: domain_features(c) for s, c in cov[ph].items()} for ph in SESSIONS}
-    print(f"{cohort}: donor features ready ({time.time() - started:.0f} s)", flush=True)
+    print(f"donor features ready ({time.time() - started:.0f} s)", flush=True)
 
     def tasks():  # lazily, so only the dispatched patients' donor stacks are in memory
         for phase in SESSIONS:
-            subjects = sorted(labels[phase])
-            prior = priors(TF[phase], labels[phase], subjects, BANK)
-            for s in subjects:
+            prior = priors(TF[phase], labels[phase], pool[phase], decode[phase], BANK)
+            for s in decode[phase]:
                 previous = None
                 if phase in LATER:
                     if any(s not in labels[p] for p in LATER[phase]):
@@ -319,7 +335,7 @@ def run(cohort, jobs, worker):
                         name: tuple(np.concatenate(parts) for parts in zip(*[
                             donor_group(TF[p], labels[p], [s], views) for p in LATER[phase]]))
                         for name, views in (("bank", BANK), ("bank28", BANK28))}
-                rest = [o for o in subjects if o != s]
+                rest = [o for o in pool[phase] if o != s]
                 others = {name: donor_group(TF[phase], labels[phase], rest, views)
                           for name, views in (("830", ("830",)), ("bank", BANK), ("bank28", BANK28))}
                 others_C = (np.concatenate([centred(cov[phase][o]["830"]) for o in rest]),

@@ -10,7 +10,7 @@ decoder is re-run:
                   (later sessions: prevoth_bank and prevoth_bank28)
   avg_online      mean probability of pooled_sup_bank, pooled_sup_bank28 and prior_sup_bank
                   (later sessions: prevoth_sup_bank and prevoth_sup_bank28)
-  bma_all         Bayesian model averaging over every decoder of the setting
+  bma_all         Bayesian model averaging over every decoder of the setting (rounds 1 and 2)
 The candidates are fixed before this script is first run. Selection without hindsight is done
 as in combo_explore.report, over the first round's decoders and these together.
 
@@ -37,7 +37,9 @@ def _script(name):
 combo = _script("combo_explore")
 START = 4  # test trials seen before the bias is adapted
 BIASED = ("pooled_bank", "pooled_bank28", "pooled_bank_crops", "prior_bank", "prevoth_bank",
-          "prevoth_bank28", "prevzero_bank", "prevzero_unsup_bank", "pooled_unsup_bank")
+          "prevoth_bank28", "prevzero_bank", "prevzero_unsup_bank", "pooled_unsup_bank",
+          "pooled_unsup_bank28", "prevoth_unsup_bank", "prevoth_unsup_bank28", "prevothzero_bank28",
+          "prevothzero_unsup_bank28")
 AVERAGES = {"pre": {"avg_static": ("pooled_bank", "pooled_bank28", "pooled_bank_crops"),
                     "avg_online": ("pooled_sup_bank", "pooled_sup_bank28", "prior_sup_bank")},
             "later": {"avg_static": ("prevoth_bank", "prevoth_bank28"),
@@ -52,13 +54,16 @@ def bias_adapted(p):
 
 
 def second_round(cohort):
-    table = pd.read_csv(RESULTS_DIR / "summary" / f"combo_{cohort}.csv")
-    probs = np.load(RESULTS_DIR / "combo" / f"{cohort}_probs.npz")
+    table = combo.load_tables(cohort)
+    probs = dict(np.load(RESULTS_DIR / "combo" / f"{cohort}_probs.npz"))
+    second = RESULTS_DIR / "combo" / f"{cohort}_probs_r2.npz"
+    if second.exists():
+        probs.update(np.load(second))
     rows = []
     for _, r in table.iterrows():
         key = f"{r['session']}|{r['subject']}|{r['k']}"
         y = probs[f"{key}|y"]
-        p = {n: probs[f"{key}|{n}"] for n in table.columns if f"{key}|{n}" in probs.files}
+        p = {n: probs[f"{key}|{n}"] for n in table.columns if f"{key}|{n}" in probs}
         setting = "pre" if r["session"] == "pre" else "later"
         new = {f"{n}+bias": bias_adapted(p[n]) for n in BIASED if n in p}
         for name, members in AVERAGES[setting].items():
