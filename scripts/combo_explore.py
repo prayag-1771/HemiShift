@@ -98,6 +98,9 @@ ONLINE = ("own_sup", "pooled_sup", "own_sup_bank", "pooled_sup_bank", "pooled_su
           "prior_sup_bank")
 ONLINE_LATER = ("prevoth_sup_bank", "prevoth_sup_bank28")
 UNSUP, UNSUP_LATER = ("pooled_unsup_bank",), ("prevzero_unsup_bank",)
+R2 = ("pooled_unsup_bank28",)  # round 2 (declared 2026-11-01, after round 1 on S3)
+R2_LATER = ("prevoth_unsup_bank", "prevoth_unsup_bank28", "prevothzero_bank28",
+            "prevothzero_unsup_bank28")
 EXPERTS = ("pooled_bank", "pooled_bank28", "own_sup_bank", "pooled_sup_bank", "pooled_sup_bank28",
            "prior_sup_bank")
 EXPERTS_LATER = ("prevoth_bank", "prevoth_bank28", "prevoth_sup_bank", "prevoth_sup_bank28")
@@ -230,6 +233,29 @@ def run_patient(phase, s, cov, y, splits, others, others_C, crops, prior, previo
     return rows, probs
 
 
+def run_patient_r2(phase, s, cov, y, splits, others, others_C, crops, prior, previous):
+    """Round 2: the unsupervised (re-centring only) versions of round 1's best stacks.
+    prevothzero_* use no patient labels at all: earlier sessions + other patients."""
+    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+    rows, probs = [], {}
+    for k, (cal, test) in splits.items():
+        yt = y[test]
+        p = {"pooled_unsup_bank28": online(cov, y, cal, test, BANK28, labels="cal",
+                                           groups=[others["bank28"]])}
+        if previous is not None:
+            both, both28 = [previous["bank"], others["bank"]], [previous["bank28"], others["bank28"]]
+            p.update({
+                "prevoth_unsup_bank": online(cov, y, cal, test, BANK, labels="cal", groups=both),
+                "prevoth_unsup_bank28": online(cov, y, cal, test, BANK28, labels="cal", groups=both28),
+                "prevothzero_bank28": static(cov, y, cal, test, BANK28, zero=both28),
+                "prevothzero_unsup_bank28": online(cov, y, cal, test, BANK28, zero=both28),
+            })
+        rows.append({"session": phase, "subject": s, "k": k,
+                     **{n: 100 * np.mean((q > 0.5).astype(int) == yt) for n, q in p.items()}})
+        probs.update({f"{phase}|{s}|{k}|{n}": q.astype(np.float32) for n, q in p.items()})
+    return rows, probs
+
+
 # ---------- driver ----------
 
 def split(cohort, y, k):
@@ -238,7 +264,7 @@ def split(cohort, y, k):
     return calibration_split(y, k, mode="first")
 
 
-def run(cohort, jobs):
+def run(cohort, jobs, worker):
     started = time.time()
     cov, labels = prepare(cohort)
     print(f"{cohort}: data ready ({time.time() - started:.0f} s); patients per session "
@@ -266,18 +292,18 @@ def run(cohort, jobs):
                             np.concatenate([labels[phase][o] for o in rest]))
                 crops = (np.concatenate([TF[phase][o]["crops"] for o in rest]), others["bank"][1])
                 y = labels[phase][s]
-                yield delayed(run_patient)(phase, s, cov[phase][s], y,
-                                           {k: split(cohort, y, k) for k in KS}, others, others_C,
-                                           crops, prior[s], previous)
+                yield delayed(worker)(phase, s, cov[phase][s], y,
+                                      {k: split(cohort, y, k) for k in KS}, others, others_C,
+                                      crops, prior[s], previous)
 
     rows, probs = [], {}
     for r, p in Parallel(n_jobs=jobs, return_as="generator")(tasks()):
         rows += r
         probs.update(p)
         first = r[0]
-        print(f"  {first['session']:6s} sub {first['subject']:2d} k=5: own {first['own']:.1f} "
-              f"pooled_bank {first['pooled_bank']:.1f} pooled_sup_bank {first['pooled_sup_bank']:.1f} "
-              f"bma {first['bma']:.1f} ({time.time() - started:.0f} s)", flush=True)
+        print(f"  {first['session']:6s} sub {first['subject']:2d} k=5: " + " ".join(
+            f"{n} {v:.1f}" for n, v in first.items() if n not in ("session", "subject", "k", "n_test"))
+            + f" ({time.time() - started:.0f} s)", flush=True)
     table = pd.DataFrame(rows).sort_values(["session", "subject", "k"]).reset_index(drop=True)
     return table, probs
 
@@ -285,7 +311,7 @@ def run(cohort, jobs):
 # ---------- report ----------
 
 FAMILIES = {  # what the decoder needs during the session
-    "no labels after calibration": STATIC + STATIC_LATER + UNSUP + UNSUP_LATER,
+    "no labels after calibration": STATIC + STATIC_LATER + UNSUP + UNSUP_LATER + R2 + R2_LATER,
     "cue labels during the session": ONLINE + ONLINE_LATER + ("bma",),
 }
 
@@ -387,28 +413,36 @@ def check(cohort, table):
             print(f"check {name}: {a} equals the logged {b} in {100 * same:.0f} % of rows")
 
 
+def load_tables(cohort):
+    """Round 1, with round 2's decoders joined in once they exist."""
+    table = pd.read_csv(RESULTS_DIR / "summary" / f"combo_{cohort}.csv")
+    second = RESULTS_DIR / "summary" / f"combo_{cohort}_r2.csv"
+    if second.exists():
+        table = table.merge(pd.read_csv(second), on=["session", "subject", "k"], how="left",
+                            validate="one_to_one")
+    return table
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cohort", default="both", choices=("s3", "s4", "both"))
+    parser.add_argument("--round", type=int, default=1, choices=(1, 2))
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument("--stats-only", action="store_true",
                         help="recompute the report from the saved per-patient results")
     args = parser.parse_args()
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     cohorts = ("s3", "s4") if args.cohort == "both" else (args.cohort,)
-    tables = {}
-    for cohort in cohorts:
-        out = RESULTS_DIR / "summary" / f"combo_{cohort}.csv"
-        if args.stats_only:
-            tables[cohort] = pd.read_csv(out)
-            continue
-        table, probs = run(cohort, args.jobs)
-        table.to_csv(out, index=False)
-        (RESULTS_DIR / "combo").mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(RESULTS_DIR / "combo" / f"{cohort}_probs.npz", **probs)
-        check(cohort, table)
-        tables[cohort] = table
-    report(tables)
+    if not args.stats_only:
+        suffix = "" if args.round == 1 else "_r2"
+        for cohort in cohorts:
+            table, probs = run(cohort, args.jobs, run_patient if args.round == 1 else run_patient_r2)
+            table.to_csv(RESULTS_DIR / "summary" / f"combo_{cohort}{suffix}.csv", index=False)
+            (RESULTS_DIR / "combo").mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(RESULTS_DIR / "combo" / f"{cohort}_probs{suffix}.npz", **probs)
+            if args.round == 1:
+                check(cohort, table)
+    report({cohort: load_tables(cohort) for cohort in cohorts})
 
 
 if __name__ == "__main__":

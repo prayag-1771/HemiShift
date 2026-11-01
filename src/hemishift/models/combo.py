@@ -85,14 +85,25 @@ def population_prior(weights, floor=1e-4):
     return W.mean(axis=0), W.var(axis=0, ddof=1) + floor
 
 
+def donor_decoder(groups):
+    """LR on donor groups (T, y) only, no patient labels; each group weighs as much as the
+    average group. A single group is fitted unweighted."""
+    groups = [groups] if isinstance(groups, tuple) else list(groups)
+    size = sum(len(y) for _, y in groups) / len(groups)
+    X = np.vstack([T for T, _ in groups])
+    Y = np.concatenate([y for _, y in groups])
+    w = np.concatenate([np.full(len(y), size / len(y)) for _, y in groups])
+    return lr().fit(X, Y, sample_weight=w)
+
+
 def static(cov, y, cal, test, views, groups=(), prior=None, zero=None):
     """P(MI) of the test trials from a decoder fixed after calibration. cov: view -> (n, c, c);
     the views' tangent vectors sit side by side. groups: donor groups (T, y) pooled with the
-    calibration; prior: MAP with this prior instead; zero: a decoder trained on these donors
-    (T, y) only, no patient labels used."""
+    calibration; prior: MAP with this prior instead; zero: a decoder trained on donor groups
+    only (`donor_decoder`), no patient labels used."""
     T = np.hstack([recentred(cov[v], cal)[0] for v in views])
     if zero is not None:
-        return lr().fit(*zero).predict_proba(T[test])[:, 1]
+        return donor_decoder(zero).predict_proba(T[test])[:, 1]
     if prior is not None:
         return map_proba(map_lr(T[cal], y[cal], prior), T[test])
     X, Y, w = stack(T[cal], y[cal], groups)
@@ -154,8 +165,8 @@ def online(cov, y, cal, test, views, labels="all", groups=(), prior=None, zero=N
     labels: "all" (the calibration and every earlier test trial, by their cue labels) or
     "cal" (the calibration only). The patient is re-centred on the calibration and every
     earlier test trial. Donor groups weigh as much as the labelled trials. zero: a fixed
-    decoder trained on these donors (T, y); only the re-centring adapts."""
-    fixed = lr().fit(*zero) if zero is not None else None
+    decoder trained on donor groups only (`donor_decoder`); only the re-centring adapts."""
+    fixed = donor_decoder(zero) if zero is not None else None
     model, w_map = lr(warm=True), None
     means = [None] * len(views)
     p = np.empty(len(test))

@@ -1,8 +1,9 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
-from hemishift.models.combo import (bma, crop_features, crops_static, map_lr, map_proba, online,
-                                    population_prior, stack, static, tangent_all)
+from hemishift.models.combo import (bma, crop_features, crops_static, donor_decoder, map_lr,
+                                    map_proba, online, population_prior, stack, static,
+                                    tangent_all)
 
 
 def _spd(rng, n, c=4, shift=0.0):
@@ -80,6 +81,22 @@ def test_one_full_window_crop_equals_the_pooled_static_decoder():
     p_crops = crops_static([C[:, None]], y, cal, test, (donors, y_d))
     p_static = static({"a": C}, y, cal, test, ("a",), [(tangent_all(D), y_d)])
     assert np.allclose(p_crops, p_static, atol=1e-6)
+
+
+def test_donor_decoder_weighs_groups_equally_and_one_group_is_plain_lr():
+    rng = np.random.default_rng(4)
+    T = rng.standard_normal((50, 3))
+    y = (T[:, 0] > 0).astype(int)
+    one = donor_decoder((T, y))
+    ref = LogisticRegression(C=1.0, max_iter=1000).fit(T, y)
+    assert np.allclose(one.coef_, ref.coef_, atol=1e-5)
+    # two groups of 50 and 20 rows: each weighs as much as the average group (35 rows)
+    two = donor_decoder([(T, y), (T[:20], y[:20])])
+    weights = np.concatenate([np.full(50, 35 / 50), np.full(20, 35 / 20)])
+    ref = LogisticRegression(C=1.0, max_iter=1000).fit(np.vstack([T, T[:20]]),
+                                                       np.concatenate([y, y[:20]]),
+                                                       sample_weight=weights)
+    assert np.allclose(two.coef_, ref.coef_, atol=1e-5)
 
 
 def test_bma_starts_from_the_average_and_moves_to_the_better_decoder():
