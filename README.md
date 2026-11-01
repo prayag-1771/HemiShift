@@ -24,7 +24,7 @@ then tests them on hospitals they have never seen.
 
 | Finding | Result | Status |
 |---|---|---|
-| **The combined decoder:** other patients + mu/beta band bank + the patient's own earlier sessions + updating after every trial (cue labels), with online model averaging (S3 locked test, 8 never-used patients) | First session 77.1 → **88.7 %** (+11.6); returning patients 75.9 → **88.1 %** (+12.2); all 8 patients helped in both; +5.2 over the known co-adaptive decoder | **Confirmed** (pre-registered, run once, p = 0.004 / 0.004 / 0.020) |
+| **The combined decoder:** other patients + mu/beta band bank + the patient's own earlier sessions + updating after every trial (cue labels), with online model averaging (S3 locked test, 8 never-used patients) | First session 77.1 → **88.7 %** (+11.6); returning patients 75.9 → **88.1 %** (+12.2); all 8 patients helped in both; +5.2 over the known co-adaptive decoder | **Confirmed** (pre-registered, run once, p = 0.004 / 0.004 / 0.020); all six hypotheses also hold on the ICA-cleaned recordings |
 | The combined decoder without any labels after calibration (S3 locked test) | Returning patients +11.9 (8/8); first session +8.7 (7/1) | **Confirmed** (pre-registered, p = 0.004 / 0.008) |
 | A returning patient with no labels at all: earlier sessions' decoder, re-centred online (S3 locked test) | 84.2 % vs 75.9 % for the own decoder with 5 labelled pairs (+8.4, 8/8) | **Confirmed** (pre-registered, p = 0.004) |
 | The same combinations on development data (S3 dev, S4) | +9 to +12 points over the own decoder in both cohorts; picks made on one cohort hold on the other | Exploratory |
