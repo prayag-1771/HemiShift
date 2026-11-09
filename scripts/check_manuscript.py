@@ -16,7 +16,7 @@ from pathlib import Path
 TEX = Path(sys.argv[1] if len(sys.argv) > 1 else "paper/springer/hemishift_sn.tex")
 BIB = TEX.with_name("references.bib")
 # dashes that belong to proper names or identifiers
-ALLOWED_HYPHENS = {"Fugl-Meyer", "MNE-Python", "HEFMI-ICH", "Mann--Whitney"}
+ALLOWED_HYPHENS = {"Fugl-Meyer", "MNE-Python", "HEFMI-ICH", "CLEAN-MI", "Mann--Whitney"}
 ID = re.compile(r"\bH-[CER]\d\b")
 ABBREVIATIONS = ("BCI", "EEG", "EOG", "ICA", "NIHSS", "CI", "SVM", "ERD", "CSP", "LSL", "BIDS", "MOABB")
 
